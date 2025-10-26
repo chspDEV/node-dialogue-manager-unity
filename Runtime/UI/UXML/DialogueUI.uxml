@@ -1,0 +1,32 @@
+﻿<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements"
+         xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" 
+         editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" 
+         editor-extension-mode="False">
+    
+    <!-- Root Container -->
+    <ui:VisualElement name="DialoguePanel" class="dialogue-panel">
+        
+        <!-- Character Info Container -->
+        <ui:VisualElement name="CharacterContainer" class="character-container">
+            <ui:VisualElement name="CharacterIcon" class="character-icon" />
+            <ui:Label name="CharacterName" text="Character Name" class="character-name" />
+        </ui:VisualElement>
+        
+        <!-- Dialogue Text Container -->
+        <ui:VisualElement name="DialogueContainer" class="dialogue-container">
+            <ui:Label name="DialogueText" text="Dialogue text will appear here..." class="dialogue-text" />
+        </ui:VisualElement>
+        
+        <!-- Continue Indicator -->
+        <ui:VisualElement name="ContinueIndicator" class="continue-indicator">
+            <ui:Label text="▼" class="continue-arrow" />
+        </ui:VisualElement>
+        
+        <!-- Options Container -->
+        <ui:VisualElement name="OptionsContainer" class="options-container">
+            <!-- Botões de opções serão criados dinamicamente -->
+        </ui:VisualElement>
+        
+    </ui:VisualElement>
+    
+</ui:UXML>

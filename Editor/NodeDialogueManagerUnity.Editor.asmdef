@@ -1,16 +1,18 @@
 {
-  "name": "NodeDialogueManagerUnity.Editor",
-  "rootNamespace": "NodeDialogueManagerUnity",
-  "references": [],
-  "includePlatforms": [
-    "Editor"
-  ],
-  "excludePlatforms": [],
-  "allowUnsafeCode": false,
-  "overrideReferences": false,
-  "precompiledReferences": [],
-  "autoReferenced": true,
-  "defineConstraints": [],
-  "versionDefines": [],
-  "noEngineReferences": false
+    "name": "NodeDialogueManagerUnity.Editor",
+    "rootNamespace": "NodeDialogueManagerUnity",
+    "references": [
+        "GUID:c5c0884756837fe4292d9723be9d76e2"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
 }
