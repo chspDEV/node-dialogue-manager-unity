@@ -1,0 +1,20 @@
+{
+  "name": "com.carlosbobao.nodedialoguemanagerunity",
+  "version": "0.1.0",
+  "displayName": "Node Dialogue Manager Unity",
+  "description": "Unity dialogue creator for game developers",
+  "keywords": [
+    "Unity",
+    "GameDev",
+    "NodeDialogueManagerUnity"
+  ],
+  "author": {
+    "name": "Carlos \"carlosbobao\" Henrique de Souza Pinto",
+    "email": "chspcontato@gmail.com",
+    "url": "carlosbobao.itch.io"
+  },
+  "unity": "6000.0",
+  "documentationUrl": "carlosbobao.itch.io/node-dialogue-manager-unity",
+  "changelogUrl": "carlosbobao.itch.io/node-dialogue-manager-unity/blob/main/CHANGELOG.md",
+  "licensesUrl": "carlosbobao.itch.io/node-dialogue-manager-unity/blob/main/LICENSE.md"
+}
