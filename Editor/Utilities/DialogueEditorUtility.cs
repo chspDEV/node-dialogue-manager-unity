@@ -1,10 +1,10 @@
-using UnityEditor;
+Ôªøusing UnityEditor;
 using UnityEngine;
 using System.IO;
 using System.Linq;
 
 /// <summary>
-/// Classe utilit·ria com funÁıes auxiliares para o editor de di·logo.
+/// Classe utilit√°ria com fun√ß√µes auxiliares para o editor de di√°logo.
 /// </summary>
 public static class DialogueEditorUtility
 {
@@ -29,9 +29,15 @@ public static class DialogueEditorUtility
 
         var asset = ScriptableObject.CreateInstance<DialogueAsset>();
 
-        // Cria o nÛ raiz automaticamente
+        // ‚úÖ CRIA O N√ì RAIZ AUTOMATICAMENTE
         var rootNode = NodeFactory.CreateNode<RootNodeData>();
         rootNode.EditorPosition = new Vector2(100, 200);
+
+        // IMPORTANTE: Usa reflection para setar o GUID manualmente
+        var guidField = typeof(BaseNodeData).GetField("guid",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        guidField?.SetValue(rootNode, System.Guid.NewGuid().ToString());
+
         asset.AddNode(rootNode);
 
         AssetDatabase.CreateAsset(asset, assetPathAndName);
@@ -58,7 +64,7 @@ public static class DialogueEditorUtility
             return false;
         }
 
-        // Verifica se existe um nÛ raiz
+        // Verifica se existe um n√≥ raiz
         var rootNode = asset.RootNode;
         if (rootNode == null)
         {
@@ -66,7 +72,7 @@ public static class DialogueEditorUtility
             return false;
         }
 
-        // Verifica nÛs Ûrf„os (sem conexıes)
+        // Verifica n√≥s √≥rf√£os (sem conex√µes)
         foreach (var node in asset.Nodes)
         {
             if (node is RootNodeData) continue;
@@ -80,7 +86,7 @@ public static class DialogueEditorUtility
             }
         }
 
-        // Verifica conexıes inv·lidas
+        // Verifica conex√µes inv√°lidas
         foreach (var connection in asset.Connections)
         {
             var fromNode = asset.GetNodeByGUID(connection.FromNodeGUID);
@@ -163,12 +169,12 @@ public static class DialogueEditorUtility
     }
 
     /// <summary>
-    /// Abre a janela de configuraÁıes do Dialogue System.
+    /// Abre a janela de configura√ß√µes do Dialogue System.
     /// </summary>
     [MenuItem("Window/Dialogue System/Settings")]
     public static void OpenSettings()
     {
-        // Implementar janela de configuraÁıes se necess·rio
+        // Implementar janela de configura√ß√µes se necess√°rio
         EditorUtility.DisplayDialog("Settings", "Dialogue System Settings (Coming Soon)", "OK");
     }
 

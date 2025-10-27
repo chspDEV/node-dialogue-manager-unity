@@ -1,4 +1,4 @@
-using System;
+Ôªøusing System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// GraphView principal que exibe e gerencia os nÛs e conexıes do di·logo.
+/// GraphView principal que exibe e gerencia os n√≥s e conex√µes do di√°logo.
 /// Baseado em UI Toolkit GraphView API.
 /// </summary>
 public class DialogueGraphView : GraphView
@@ -23,7 +23,7 @@ public class DialogueGraphView : GraphView
     {
         this.window = window;
 
-        // ConfiguraÁ„o da GridBackground
+        // Configura√ß√£o da GridBackground
         var gridBackground = new GridBackground();
         Insert(0, gridBackground);
         gridBackground.StretchToParentSize();
@@ -37,7 +37,7 @@ public class DialogueGraphView : GraphView
         // Configura menu de contexto
         SetupContextMenu();
 
-        // Configura callback de criaÁ„o de edges
+        // Configura callback de cria√ß√£o de edges
         graphViewChanged = OnGraphViewChanged;
     }
 
@@ -53,19 +53,19 @@ public class DialogueGraphView : GraphView
         // Limpa a view atual
         ClearView();
 
-        // Cria visualizaÁıes para cada nÛ
+        // Cria visualiza√ß√µes para cada n√≥
         foreach (var nodeData in asset.Nodes)
         {
             CreateNodeView(nodeData);
         }
 
-        // Cria visualizaÁıes para cada conex„o
+        // Cria visualiza√ß√µes para cada conex√£o
         foreach (var connectionData in asset.Connections)
         {
             CreateEdgeView(connectionData);
         }
 
-        // Restaura posiÁ„o e zoom (se necess·rio implementar)
+        // Restaura posi√ß√£o e zoom (se necess√°rio implementar)
         // UpdateViewTransform(asset.GraphViewPosition, asset.GraphViewScale);
     }
 
@@ -114,12 +114,12 @@ public class DialogueGraphView : GraphView
         }
 
         var edge = outputPort.ConnectTo(inputPort);
-        edge.userData = connectionData; // Armazena referÍncia aos dados
+        edge.userData = connectionData; // Armazena refer√™ncia aos dados
         AddElement(edge);
     }
 
     /// <summary>
-    /// Callback chamado quando o grafo È modificado (nÛs movidos, conexıes criadas, etc).
+    /// Callback chamado quando o grafo √© modificado (n√≥s movidos, conex√µes criadas, etc).
     /// </summary>
     private GraphViewChange OnGraphViewChanged(GraphViewChange change)
     {
@@ -166,7 +166,7 @@ public class DialogueGraphView : GraphView
 
     private void RemoveNodeFromAsset(BaseNodeView nodeView)
     {
-        // N„o permite remover o nÛ raiz
+        // N√£o permite remover o n√≥ raiz
         if (nodeView.NodeData is RootNodeData)
         {
             EditorUtility.DisplayDialog("Error", "Cannot delete the Root node.", "OK");
@@ -208,40 +208,95 @@ public class DialogueGraphView : GraphView
     }
 
     /// <summary>
-    /// Configura o menu de contexto (bot„o direito do mouse).
+    /// Configura o menu de contexto (bot√£o direito do mouse).
     /// </summary>
     private void SetupContextMenu()
     {
-        // Usa callback para menu de contexto
-        this.AddManipulator(new ContextualMenuManipulator(evt =>
+        this.RegisterCallback<ContextualMenuPopulateEvent>(evt =>
         {
-            var mousePosition = this.ChangeCoordinatesTo(contentViewContainer, evt.localMousePosition);
+            if (evt.target is DialogueGraphView)
+            {
+                var mousePosition = this.ChangeCoordinatesTo(contentViewContainer, evt.localMousePosition);
 
-            evt.menu.AppendAction("Create Speech Node", _ => CreateNode<SpeechNodeData>(mousePosition));
-            evt.menu.AppendAction("Create Option Node", _ => CreateNode<OptionNodeData>(mousePosition));
-            evt.menu.AppendSeparator();
-            evt.menu.AppendAction("Delete Selection", _ => DeleteSelection());
-        }));
+                // ‚úÖ ADICIONA OP√á√ÉO PARA CRIAR ROOT NODE
+                if (currentAsset.RootNode == null)
+                {
+                    evt.menu.AppendAction("Create Root Node", _ => CreateRootNode(mousePosition));
+                    evt.menu.AppendSeparator();
+                }
+
+                evt.menu.AppendAction("Create Speech Node", _ => CreateNode<SpeechNodeData>(mousePosition));
+                evt.menu.AppendAction("Create Option Node", _ => CreateNode<OptionNodeData>(mousePosition));
+                evt.menu.AppendSeparator();
+                evt.menu.AppendAction("Delete Selection", _ => DeleteSelection());
+            }
+        });
     }
 
-    /// <summary>
-    /// Cria um novo nÛ na posiÁ„o especificada.
+    // ‚úÖ M√âTODO PARA CRIAR ROOT NODE
+    private void CreateRootNode(Vector2 position)
+    {
+        if (currentAsset == null)
+        {
+            Debug.LogError("No DialogueAsset loaded!");
+            return;
+        }
+
+        // Verifica se j√° existe um Root Node
+        if (currentAsset.RootNode != null)
+        {
+            EditorUtility.DisplayDialog("Error", "This dialogue already has a Root Node!", "OK");
+            return;
+        }
+
+        var rootNode = NodeFactory.CreateNode<RootNodeData>();
+        rootNode.EditorPosition = position;
+
+        currentAsset.AddNode(rootNode);
+
+        EditorUtility.SetDirty(currentAsset);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        var nodeView = CreateNodeView(rootNode);
+        if (nodeView != null)
+        {
+            nodeView.SetPosition(new Rect(position, Vector2.zero));
+        }
+    }
+
+
+    /// Cria um novo n√≥ na posi√ß√£o especificada.
+    /// CORRIGIDO: Salva o asset imediatamente ap√≥s criar o n√≥.
     /// </summary>
     private void CreateNode<T>(Vector2 position) where T : BaseNodeData, new()
     {
+        if (currentAsset == null)
+        {
+            Debug.LogError("No DialogueAsset loaded!");
+            return;
+        }
+
         var nodeData = NodeFactory.CreateNode<T>();
         nodeData.EditorPosition = position;
 
         currentAsset.AddNode(nodeData);
 
-        var nodeView = CreateNodeView(nodeData);
-        nodeView.SetPosition(new Rect(position, Vector2.zero));
+        // CORRE√á√ÉO CR√çTICA: Marca o asset como dirty e for√ßa salvamento
+        UnityEditor.EditorUtility.SetDirty(currentAsset);
+        UnityEditor.AssetDatabase.SaveAssets();
+        UnityEditor.AssetDatabase.Refresh();
 
-        EditorUtility.SetDirty(currentAsset);
+        // Agora cria a view com os dados j√° salvos
+        var nodeView = CreateNodeView(nodeData);
+        if (nodeView != null)
+        {
+            nodeView.SetPosition(new Rect(position, Vector2.zero));
+        }
     }
 
     /// <summary>
-    /// Sobrescreve a compatibilidade de portas para permitir conexıes.
+    /// Sobrescreve a compatibilidade de portas para permitir conex√µes.
     /// </summary>
     public override List<Port> GetCompatiblePorts(Port startPort, NodeAdapter nodeAdapter)
     {

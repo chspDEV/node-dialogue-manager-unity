@@ -1,16 +1,18 @@
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 
 /// <summary>
-/// Janela principal do editor de gr�fico de di�logo.
+/// Janela principal do editor de gráfico de diálogo.
 /// </summary>
 public class DialogueGraphWindow : EditorWindow
 {
     private DialogueAsset currentAsset;
     private DialogueGraphView graphView;
     private Label assetNameLabel;
+    private BlackboardView blackboardView; // ✅ NOVO
+    private VisualElement mainContainer; // ✅ NOVO
 
     [MenuItem("Window/Dialogue System/Dialogue Editor")]
     public static DialogueGraphWindow OpenWindow()
@@ -31,7 +33,21 @@ public class DialogueGraphWindow : EditorWindow
     private void CreateGUI()
     {
         InitializeToolbar();
+
+        // ✅ NOVO: Container principal horizontal
+        mainContainer = new VisualElement();
+        mainContainer.style.flexDirection = FlexDirection.Row;
+        mainContainer.style.flexGrow = 1;
+
         InitializeGraphView();
+
+        // ✅ NOVO: Adiciona Blackboard
+        if (currentAsset != null)
+        {
+            InitializeBlackboard();
+        }
+
+        rootVisualElement.Add(mainContainer);
         InitializeStyles();
 
         if (currentAsset != null)
@@ -44,15 +60,15 @@ public class DialogueGraphWindow : EditorWindow
     {
         var toolbar = new Toolbar();
 
-        // Bot�o New
+        // Botão New
         var btnNew = new ToolbarButton(() => CreateNewAsset()) { text = "New" };
         toolbar.Add(btnNew);
 
-        // Bot�o Load
+        // Botão Load
         var btnLoad = new ToolbarButton(() => LoadAssetFromSelection()) { text = "Load" };
         toolbar.Add(btnLoad);
 
-        // Bot�o Save
+        // Botão Save
         var btnSave = new ToolbarButton(() => SaveAsset()) { text = "Save" };
         toolbar.Add(btnSave);
 
@@ -71,7 +87,18 @@ public class DialogueGraphWindow : EditorWindow
     {
         graphView = new DialogueGraphView(this);
         graphView.style.flexGrow = 1;
-        rootVisualElement.Add(graphView);
+        mainContainer.Add(graphView); // ✅ Adiciona ao container, não ao root
+    }
+
+    private void InitializeBlackboard()
+    {
+        if (blackboardView != null)
+        {
+            mainContainer.Remove(blackboardView);
+        }
+
+        blackboardView = new BlackboardView(currentAsset);
+        mainContainer.Add(blackboardView);
     }
 
     private void InitializeStyles()
@@ -96,7 +123,7 @@ public class DialogueGraphWindow : EditorWindow
 
         var newAsset = CreateInstance<DialogueAsset>();
 
-        // Cria o n� raiz automaticamente
+        // Cria o nó raiz automaticamente
         var rootNode = new RootNodeData();
         rootNode.EditorPosition = new Vector2(100, 200);
         newAsset.AddNode(rootNode);
@@ -129,6 +156,12 @@ public class DialogueGraphWindow : EditorWindow
         if (graphView != null)
         {
             graphView.PopulateView(asset);
+        }
+
+        // ✅ ATUALIZA BLACKBOARD
+        if (asset != null)
+        {
+            InitializeBlackboard();
         }
     }
 

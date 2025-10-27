@@ -4,6 +4,7 @@ using UnityEditor.UIElements;
 
 /// <summary>
 /// Visualização do nó de fala (Speech Node).
+/// CORRIGIDO: Proteção contra valores null durante criação.
 /// </summary>
 public class SpeechNodeView : BaseNodeView
 {
@@ -21,17 +22,22 @@ public class SpeechNodeView : BaseNodeView
         var contentContainer = new VisualElement();
         contentContainer.AddToClassList("node-content-preview");
 
+        // CORREÇÃO: Verifica se os valores existem antes de usar
+        string characterName = speechData?.CharacterName ?? "Character";
+        string dialogueText = speechData?.DialogueText ?? "Enter dialogue text...";
+        string audioID = speechData?.AudioSignalID ?? "";
+
         // Preview do nome do personagem
-        var characterLabel = new Label(speechData.CharacterName);
+        var characterLabel = new Label(characterName);
         characterLabel.AddToClassList("character-name-preview");
         characterLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
         characterLabel.style.fontSize = 14;
         contentContainer.Add(characterLabel);
 
         // Preview do texto do diálogo (primeiras 50 caracteres)
-        var dialoguePreview = speechData.DialogueText.Length > 50
-            ? speechData.DialogueText.Substring(0, 50) + "..."
-            : speechData.DialogueText;
+        var dialoguePreview = dialogueText.Length > 50
+            ? dialogueText.Substring(0, 50) + "..."
+            : dialogueText;
 
         var dialogueLabel = new Label(dialoguePreview);
         dialogueLabel.AddToClassList("dialogue-preview");
@@ -41,9 +47,9 @@ public class SpeechNodeView : BaseNodeView
         contentContainer.Add(dialogueLabel);
 
         // Ícone de áudio se houver Audio ID
-        if (!string.IsNullOrEmpty(speechData.AudioSignalID))
+        if (!string.IsNullOrEmpty(audioID))
         {
-            var audioLabel = new Label($"🔊 {speechData.AudioSignalID}");
+            var audioLabel = new Label($"🔊 {audioID}");
             audioLabel.style.fontSize = 10;
             audioLabel.style.color = new Color(0.6f, 0.8f, 1f);
             contentContainer.Add(audioLabel);

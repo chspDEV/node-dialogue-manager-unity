@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 
 /// <summary>
 /// Visualização do nó de opções (Option Node).
-/// Cria uma porta de saída para cada opção.
+/// CORRIGIDO: Proteção contra valores null durante criação.
 /// </summary>
 public class OptionNodeView : BaseNodeView
 {
@@ -23,8 +23,11 @@ public class OptionNodeView : BaseNodeView
         inputPorts.Add(inputPort);
         inputContainer.Add(inputPort);
 
+        // CORREÇÃO: Verifica se a lista de opções existe
+        int optionCount = optionData?.Options?.Count ?? 0;
+
         // Uma porta de saída para cada opção
-        for (int i = 0; i < optionData.Options.Count; i++)
+        for (int i = 0; i < optionCount; i++)
         {
             var outputPort = CreatePort(Direction.Output, Port.Capacity.Single, i);
             outputPorts.Add(outputPort);
@@ -37,9 +40,10 @@ public class OptionNodeView : BaseNodeView
         if (direction == Direction.Input)
             return "In";
 
-        if (index < optionData.Options.Count)
+        // CORREÇÃO: Verifica se a opção existe
+        if (optionData?.Options != null && index < optionData.Options.Count)
         {
-            var optionText = optionData.Options[index].optionText;
+            var optionText = optionData.Options[index]?.optionText ?? $"Option {index + 1}";
             return optionText.Length > 20 ? optionText.Substring(0, 20) + "..." : optionText;
         }
 
@@ -51,16 +55,20 @@ public class OptionNodeView : BaseNodeView
         var contentContainer = new VisualElement();
         contentContainer.AddToClassList("node-content-preview");
 
+        // CORREÇÃO: Verifica se a lista existe
+        int optionCount = optionData?.Options?.Count ?? 0;
+
         // Mostra quantas opções existem
-        var optionCountLabel = new Label($"{optionData.Options.Count} options available");
+        var optionCountLabel = new Label($"{optionCount} options available");
         optionCountLabel.style.fontSize = 11;
         optionCountLabel.style.unityTextAlign = UnityEngine.TextAnchor.MiddleCenter;
         contentContainer.Add(optionCountLabel);
 
         // Timeout se houver
-        if (optionData.TimeoutDuration > 0)
+        float timeout = optionData?.TimeoutDuration ?? 0;
+        if (timeout > 0)
         {
-            var timeoutLabel = new Label($"⏱️ Timeout: {optionData.TimeoutDuration}s");
+            var timeoutLabel = new Label($"⏱️ Timeout: {timeout}s");
             timeoutLabel.style.fontSize = 10;
             timeoutLabel.style.color = new Color(1f, 0.8f, 0.4f);
             contentContainer.Add(timeoutLabel);
@@ -77,7 +85,9 @@ public class OptionNodeView : BaseNodeView
         outputContainer.Clear();
         outputPorts.Clear();
 
-        for (int i = 0; i < optionData.Options.Count; i++)
+        int optionCount = optionData?.Options?.Count ?? 0;
+
+        for (int i = 0; i < optionCount; i++)
         {
             var outputPort = CreatePort(Direction.Output, Port.Capacity.Single, i);
             outputPorts.Add(outputPort);
