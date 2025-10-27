@@ -59,4 +59,37 @@ public class DialogueAsset : ScriptableObject
     {
         return nodes.FirstOrDefault(n => n.GUID == guid);
     }
+
+    /// <summary>
+    /// Encontra e retorna o nó raiz (RootNode) deste diálogo.
+    /// </summary>
+    public RootNodeData GetRootNode()
+    {
+        // Usa LINQ para encontrar o primeiro nó que é do tipo RootNodeData
+        return nodes.OfType<RootNodeData>().FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Encontra o próximo nó conectado a uma porta de saída específica.
+    /// </summary>
+    /// <param name="fromNode">O nó de origem.</param>
+    /// <param name="portIndex">O índice da porta de saída.</param>
+    /// <returns>O nó de destino, ou null se não houver conexão.</returns>
+    public BaseNodeData GetNextNode(BaseNodeData fromNode, int portIndex = 0)
+    {
+        // 1. Encontra a conexão que sai deste nó e desta porta
+        var connection = connections.FirstOrDefault(c =>
+            c.FromNodeGUID == fromNode.GUID &&
+            c.FromPortIndex == portIndex
+        );
+
+        if (connection == null)
+        {
+            // Não há mais conexões, o diálogo termina
+            return null;
+        }
+
+        // 2. Encontra o nó de destino usando o GUID da conexão
+        return nodes.FirstOrDefault(n => n.GUID == connection.ToNodeGUID);
+    }
 }

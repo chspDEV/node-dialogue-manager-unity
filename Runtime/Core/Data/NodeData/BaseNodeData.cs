@@ -11,7 +11,7 @@ using UnityEngine;
 // pois ScriptableObject já é serializável pelo Unity.
 public abstract class BaseNodeData : ScriptableObject // <-- MUDANÇA CRUCIAL
 {
-    [SerializeField] private string guid;
+    [SerializeField] public string guid;
     [SerializeField] private Vector2 editorPosition;
     [SerializeField] private string nodeTitle = "Untitled Node";
 

@@ -34,6 +34,10 @@ public class ConnectionData
     public int ToPortIndex { get => toPortIndex; set => toPortIndex = value; }
     public List<BaseCondition> Conditions => conditions;
 
+    public string OutputNodeGuid { get; set; }
+    public int OutputPortIndex { get; set; }
+    public string InputNodeGuid { get; set; }
+
     public bool AreConditionsMet()
     {
         foreach (var condition in conditions)

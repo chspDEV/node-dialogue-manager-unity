@@ -1,69 +1,77 @@
-﻿using UnityEngine;
+﻿using UnityEditor.Experimental.GraphView;
+using UnityEngine;
 using UnityEngine.UIElements;
-using UnityEditor.UIElements;
 
-/// <summary>
-/// Visualização do nó de fala (Speech Node).
-/// CORRIGIDO: Proteção contra valores null durante criação.
-/// </summary>
-public class SpeechNodeView : BaseNodeView
+namespace ChspDev.DialogueSystem.Editor
 {
-    private SpeechNodeData speechData;
-
-    public SpeechNodeView(SpeechNodeData data) : base(data)
+    public class SpeechNodeView : BaseNodeView
     {
-        speechData = data;
-        AddToClassList("speech-node");
-    }
+        private SpeechNodeData speechNodeData;
+        private Label dialoguePreview;
 
-    protected override void CreateNodeContent()
-    {
-        // Container para preview do conteúdo
-        var contentContainer = new VisualElement();
-        contentContainer.AddToClassList("node-content-preview");
-
-        // CORREÇÃO: Verifica se os valores existem antes de usar
-        string characterName = speechData?.CharacterName ?? "Character";
-        string dialogueText = speechData?.DialogueText ?? "Enter dialogue text...";
-        string audioID = speechData?.AudioSignalID ?? "";
-
-        // Preview do nome do personagem
-        var characterLabel = new Label(characterName);
-        characterLabel.AddToClassList("character-name-preview");
-        characterLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-        characterLabel.style.fontSize = 14;
-        contentContainer.Add(characterLabel);
-
-        // Preview do texto do diálogo (primeiras 50 caracteres)
-        var dialoguePreview = dialogueText.Length > 50
-            ? dialogueText.Substring(0, 50) + "..."
-            : dialogueText;
-
-        var dialogueLabel = new Label(dialoguePreview);
-        dialogueLabel.AddToClassList("dialogue-preview");
-        dialogueLabel.style.fontSize = 11;
-        dialogueLabel.style.whiteSpace = WhiteSpace.Normal;
-        dialogueLabel.style.maxWidth = 200;
-        contentContainer.Add(dialogueLabel);
-
-        // Ícone de áudio se houver Audio ID
-        if (!string.IsNullOrEmpty(audioID))
+        public SpeechNodeView(SpeechNodeData nodeData) : base(nodeData)
         {
-            var audioLabel = new Label($"🔊 {audioID}");
-            audioLabel.style.fontSize = 10;
-            audioLabel.style.color = new Color(0.6f, 0.8f, 1f);
-            contentContainer.Add(audioLabel);
+            this.speechNodeData = nodeData;
+
+            title = "Speech Node";
+
+            var inputPort = InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(bool));
+            inputPort.portName = "In";
+            inputContainer.Add(inputPort);
+
+            var outputPort = InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Single, typeof(bool));
+            outputPort.portName = "Out";
+            outputContainer.Add(outputPort);
+
+            DialogueEditorEvents.OnNodeDataChanged += OnNodeDataChanged;
+
+            UpdateNodeView();
+
+            RefreshExpandedState();
+            RefreshPorts();
         }
 
-        extensionContainer.Add(contentContainer);
-    }
+        protected override void CreateNodeContent()
+        {
+            // Cria o preview do texto do diálogo
+            dialoguePreview = new Label();
+            dialoguePreview.AddToClassList("dialogue-preview");
+            dialoguePreview.style.whiteSpace = WhiteSpace.Normal;
+            dialoguePreview.style.maxWidth = 200;
+            dialoguePreview.style.minHeight = 40;
+            dialoguePreview.style.paddingTop = 8;
+            dialoguePreview.style.paddingBottom = 8;
+            dialoguePreview.style.paddingLeft = 8;
+            dialoguePreview.style.paddingRight = 8;
 
-    public override void UpdateNodeView()
-    {
-        base.UpdateNodeView();
+            mainContainer.Add(dialoguePreview);
+        }
 
-        // Recria o conteúdo quando os dados mudam
-        extensionContainer.Clear();
-        CreateNodeContent();
+        private void OnNodeDataChanged(BaseNodeData changedNodeData)
+        {
+            if (changedNodeData == speechNodeData)
+            {
+                UpdateNodeView();
+            }
+        }
+
+        public override void UpdateNodeView()
+        {
+            title = string.IsNullOrEmpty(speechNodeData.CharacterName)
+                ? "Speech Node"
+                : speechNodeData.CharacterName;
+
+            if (dialoguePreview != null)
+            {
+                dialoguePreview.text = string.IsNullOrEmpty(speechNodeData.DialogueText)
+                    ? "<i>Empty dialogue...</i>"
+                    : speechNodeData.DialogueText;
+            }
+        }
+
+        ~SpeechNodeView()
+        {
+            DialogueEditorEvents.OnNodeDataChanged -= OnNodeDataChanged;
+        }
     }
 }

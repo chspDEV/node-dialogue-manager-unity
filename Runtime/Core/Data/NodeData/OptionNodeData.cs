@@ -31,7 +31,7 @@ public class OptionNodeData : BaseNodeData
     }
 
     // CORREÇÃO: Inicializa a lista no campo
-    [SerializeField] private List<Option> options = new List<Option>();
+    [SerializeField] public List<Option> options = new List<Option>();
     [SerializeField] private float timeoutDuration = 0f;
     [SerializeField] private int defaultOptionIndex = -1;
 

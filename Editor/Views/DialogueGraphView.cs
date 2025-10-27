@@ -6,334 +6,372 @@ using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-/// <summary>
-/// GraphView principal que exibe e gerencia os nós e conexões do diálogo.
-/// Baseado em UI Toolkit GraphView API.
-/// </summary>
-public class DialogueGraphView : GraphView
+namespace ChspDev.DialogueSystem.Editor
 {
-    private DialogueGraphWindow window;
-    private DialogueAsset currentAsset;
-
-    private Dictionary<string, BaseNodeView> nodeViewsCache = new Dictionary<string, BaseNodeView>();
-
-    public DialogueAsset CurrentAsset => currentAsset;
-
-    public DialogueGraphView(DialogueGraphWindow window)
+    public class DialogueGraphView : GraphView
     {
-        this.window = window;
+        public DialogueAsset dialogueAsset;
+        private EditorWindow parentWindow;
 
-        // Configuração da GridBackground
-        var gridBackground = new GridBackground();
-        Insert(0, gridBackground);
-        gridBackground.StretchToParentSize();
-
-        // Adiciona manipuladores
-        this.AddManipulator(new ContentZoomer());
-        this.AddManipulator(new ContentDragger());
-        this.AddManipulator(new SelectionDragger());
-        this.AddManipulator(new RectangleSelector());
-
-        // Configura menu de contexto
-        SetupContextMenu();
-
-        // Configura callback de criação de edges
-        graphViewChanged = OnGraphViewChanged;
-
-        // Inscreve-se no evento de atualização
-        DialogueEditorEvents.OnNodeViewUpdateRequest += HandleNodeViewUpdate;
-
-        // Garante que vamos nos desinscrever quando o GraphView for destruído
-        RegisterCallback<DetachFromPanelEvent>(evt =>
-            DialogueEditorEvents.OnNodeViewUpdateRequest -= HandleNodeViewUpdate
-        );
-    }
-
-    private void HandleNodeViewUpdate(BaseNodeData nodeData)
-    {
-        if (nodeData == null || currentAsset == null) return;
-
-        // Verifica se a atualização é para um nó neste grafo
-        if (!currentAsset.Nodes.Contains(nodeData)) return;
-
-        // Tenta encontrar a view correspondente no cache
-        if (nodeViewsCache.TryGetValue(nodeData.GUID, out BaseNodeView nodeView))
+        public DialogueGraphView(DialogueAsset asset, EditorWindow window)
         {
-            // Encontrou! Manda ela se atualizar.
-            nodeView.UpdateNodeView();
-        }
-    }
+            dialogueAsset = asset;
+            parentWindow = window;
 
-    /// <summary>
-    /// Popula a view com os dados do DialogueAsset.
-    /// </summary>
-    public void PopulateView(DialogueAsset asset)
-    {
-        if (asset == null) return;
+            SetupZoom(ContentZoomer.DefaultMinScale, ContentZoomer.DefaultMaxScale);
 
-        currentAsset = asset;
+            this.AddManipulator(new ContentDragger());
+            this.AddManipulator(new SelectionDragger());
+            this.AddManipulator(new RectangleSelector());
 
-        // Limpa a view atual
-        ClearView();
+            var gridBackground = new GridBackground();
+            Insert(0, gridBackground);
+            gridBackground.StretchToParentSize();
 
-        // Cria visualizações para cada nó
-        foreach (var nodeData in asset.Nodes)
-        {
-            CreateNodeView(nodeData);
+            graphViewChanged += OnGraphViewChanged;
+            nodeCreationRequest = OnNodeCreationRequest;
+
+            var styleSheet = Resources.Load<StyleSheet>("NodeStyles");
+            if (styleSheet != null)
+            {
+                styleSheets.Add(styleSheet);
+            }
         }
 
-        // Cria visualizações para cada conexão
-        foreach (var connectionData in asset.Connections)
+        // ==================== AUTO-SAVE ====================
+
+        private GraphViewChange OnGraphViewChanged(GraphViewChange graphViewChange)
         {
-            CreateEdgeView(connectionData);
+            bool needsSave = false;
+
+            if (graphViewChange.elementsToRemove != null)
+            {
+                foreach (var element in graphViewChange.elementsToRemove)
+                {
+                    if (element is BaseNodeView nodeView)
+                    {
+                        RemoveNodeData(nodeView);
+                        needsSave = true;
+                    }
+                    else if (element is Edge edge)
+                    {
+                        RemoveConnection(edge);
+                        needsSave = true;
+                    }
+                }
+            }
+
+            if (graphViewChange.edgesToCreate != null)
+            {
+                foreach (var edge in graphViewChange.edgesToCreate)
+                {
+                    var outputNode = edge.output.node as BaseNodeView;
+                    var inputNode = edge.input.node as BaseNodeView;
+
+                    if (outputNode != null && inputNode != null)
+                    {
+                        SaveConnection(outputNode, inputNode, edge.output, edge.input);
+                        needsSave = true;
+                    }
+                }
+            }
+
+            if (graphViewChange.movedElements != null && graphViewChange.movedElements.Count > 0)
+            {
+                foreach (var element in graphViewChange.movedElements)
+                {
+                    if (element is BaseNodeView nodeView)
+                    {
+                        nodeView.NodeData.EditorPosition = nodeView.GetPosition().position;
+                        EditorUtility.SetDirty(nodeView.NodeData);
+                    }
+                }
+                needsSave = true;
+            }
+
+            if (needsSave)
+            {
+                MarkAssetDirty();
+            }
+
+            return graphViewChange;
         }
 
-        // Restaura posição e zoom (se necessário implementar)
-        // UpdateViewTransform(asset.GraphViewPosition, asset.GraphViewScale);
-    }
-
-    private void ClearView()
-    {
-        // Remove todos os elementos do grafo
-        graphElements.ForEach(elem => RemoveElement(elem));
-        nodeViewsCache.Clear();
-    }
-
-    private BaseNodeView CreateNodeView(BaseNodeData nodeData)
-    {
-        BaseNodeView nodeView = nodeData switch
+        private void MarkAssetDirty()
         {
-            RootNodeData root => new RootNodeView(root),
-            SpeechNodeData speech => new SpeechNodeView(speech),
-            OptionNodeData option => new OptionNodeView(option),
-            _ => null
-        };
+            if (dialogueAsset != null)
+            {
+                EditorUtility.SetDirty(dialogueAsset);
 
-        if (nodeView != null)
+                foreach (var nodeData in dialogueAsset.Nodes)
+                {
+                    if (nodeData != null)
+                    {
+                        EditorUtility.SetDirty(nodeData);
+                    }
+                }
+
+                AssetDatabase.SaveAssets();
+            }
+        }
+
+        // ==================== NODE SEARCH WINDOW ====================
+
+        private void OnNodeCreationRequest(NodeCreationContext context)
         {
+            OpenSearchWindow(null, context.screenMousePosition);
+        }
+
+        public void OpenSearchWindow(Port originPort, Vector2 screenPosition)
+        {
+            var searchWindow = ScriptableObject.CreateInstance<NodeSearchWindow>();
+            searchWindow.Initialize(this, parentWindow, originPort);
+            SearchWindow.Open(new SearchWindowContext(screenPosition), searchWindow);
+        }
+
+        // ==================== EDGE DRAG HANDLER ====================
+
+        public class CustomEdgeConnectorListener : IEdgeConnectorListener
+        {
+            private GraphView graphView;
+            private DialogueGraphView dialogueGraphView;
+
+            public CustomEdgeConnectorListener(GraphView graphView)
+            {
+                this.graphView = graphView;
+                this.dialogueGraphView = graphView as DialogueGraphView;
+            }
+
+            public void OnDropOutsidePort(Edge edge, Vector2 position)
+            {
+                if (dialogueGraphView != null && edge.output != null)
+                {
+                    Vector2 screenPosition = GUIUtility.GUIToScreenPoint(position);
+                    dialogueGraphView.OpenSearchWindow(edge.output, screenPosition);
+                }
+            }
+
+            public void OnDrop(GraphView graphView, Edge edge)
+            {
+                // Conexão bem-sucedida
+            }
+        }
+
+        // ==================== CREATE NODE METHODS ====================
+
+        public BaseNodeView CreateSpeechNode(Vector2 position)
+        {
+            var nodeData = ScriptableObject.CreateInstance<SpeechNodeData>();
+            nodeData.guid = GUID.Generate().ToString();
+            nodeData.EditorPosition = position;
+            nodeData.CharacterName = "Character";
+            nodeData.DialogueText = "Enter dialogue here...";
+
+            AssetDatabase.AddObjectToAsset(nodeData, dialogueAsset);
+            dialogueAsset.Nodes.Add(nodeData);
+
+            var nodeView = new SpeechNodeView(nodeData);
+            nodeView.SetPosition(new Rect(position, Vector2.zero));
+
+            SetupNodePorts(nodeView);
+
             AddElement(nodeView);
-            nodeViewsCache[nodeData.GUID] = nodeView;
+            MarkAssetDirty();
+
+            return nodeView;
         }
 
-        return nodeView;
-    }
-
-    private void CreateEdgeView(ConnectionData connectionData)
-    {
-        if (!nodeViewsCache.TryGetValue(connectionData.FromNodeGUID, out var fromNode) ||
-            !nodeViewsCache.TryGetValue(connectionData.ToNodeGUID, out var toNode))
+        public BaseNodeView CreateOptionNode(Vector2 position)
         {
-            Debug.LogWarning($"Cannot create edge: Node not found");
-            return;
-        }
+            var nodeData = ScriptableObject.CreateInstance<OptionNodeData>();
+            nodeData.guid = GUID.Generate().ToString();
+            nodeData.EditorPosition = position;
 
-        var outputPort = fromNode.GetOutputPort(connectionData.FromPortIndex);
-        var inputPort = toNode.GetInputPort(connectionData.ToPortIndex);
-
-        if (outputPort == null || inputPort == null)
-        {
-            Debug.LogWarning($"Cannot create edge: Port not found");
-            return;
-        }
-
-        var edge = outputPort.ConnectTo(inputPort);
-        edge.userData = connectionData; // Armazena referência aos dados
-        AddElement(edge);
-    }
-
-    /// <summary>
-    /// Callback chamado quando o grafo é modificado (nós movidos, conexões criadas, etc).
-    /// </summary>
-    private GraphViewChange OnGraphViewChanged(GraphViewChange change)
-    {
-        // Elementos removidos
-        if (change.elementsToRemove != null)
-        {
-            foreach (var element in change.elementsToRemove)
+            nodeData.options = new List<OptionNodeData.Option>
             {
-                if (element is BaseNodeView nodeView)
+                new OptionNodeData.Option { optionText = "Option 1" },
+                new OptionNodeData.Option { optionText = "Option 2" }
+            };
+
+            AssetDatabase.AddObjectToAsset(nodeData, dialogueAsset);
+            dialogueAsset.Nodes.Add(nodeData);
+
+            var nodeView = new OptionNodeView(nodeData);
+            nodeView.SetPosition(new Rect(position, Vector2.zero));
+
+            SetupNodePorts(nodeView);
+
+            AddElement(nodeView);
+            MarkAssetDirty();
+
+            return nodeView;
+        }
+
+        // ==================== PORT SETUP ====================
+
+        private void SetupNodePorts(BaseNodeView nodeView)
+        {
+            var ports = nodeView.Query<Port>().ToList();
+            foreach (var port in ports)
+            {
+                var edgeConnector = new EdgeConnector<Edge>(new CustomEdgeConnectorListener(this));
+                port.AddManipulator(edgeConnector);
+            }
+        }
+
+        // ==================== CONNECTION MANAGEMENT ====================
+
+        public void SaveConnection(BaseNodeView outputNode, BaseNodeView inputNode, Port outputPort, Port inputPort)
+        {
+            int outputPortIndex = outputNode.outputContainer.IndexOf(outputPort);
+
+            ConnectionData connection = new ConnectionData
+            {
+                OutputNodeGuid = outputNode.NodeData.guid,
+                InputNodeGuid = inputNode.NodeData.guid,
+                OutputPortIndex = outputPortIndex
+            };
+
+            dialogueAsset.Connections.RemoveAll(c =>
+                c.OutputNodeGuid == connection.OutputNodeGuid &&
+                c.OutputPortIndex == connection.OutputPortIndex);
+
+            dialogueAsset.Connections.Add(connection);
+            MarkAssetDirty();
+        }
+
+        private void RemoveConnection(Edge edge)
+        {
+            var outputNode = edge.output?.node as BaseNodeView;
+            var inputNode = edge.input?.node as BaseNodeView;
+
+            if (outputNode == null || inputNode == null) return;
+
+            int outputPortIndex = outputNode.outputContainer.IndexOf(edge.output);
+
+            dialogueAsset.Connections.RemoveAll(c =>
+                c.OutputNodeGuid == outputNode.NodeData.guid &&
+                c.InputNodeGuid == inputNode.NodeData.guid &&
+                c.OutputPortIndex == outputPortIndex);
+        }
+
+        private void RemoveNodeData(BaseNodeView nodeView)
+        {
+            dialogueAsset.Nodes.Remove(nodeView.NodeData);
+
+            dialogueAsset.Connections.RemoveAll(c =>
+                c.OutputNodeGuid == nodeView.NodeData.guid ||
+                c.InputNodeGuid == nodeView.NodeData.guid);
+
+            AssetDatabase.RemoveObjectFromAsset(nodeView.NodeData);
+            UnityEngine.Object.DestroyImmediate(nodeView.NodeData, true);
+        }
+
+        // ==================== POPULATE VIEW ====================
+
+        /// <summary>
+        /// Popula a view com os dados do DialogueAsset atual
+        /// </summary>
+        public void PopulateView()
+        {
+            if (dialogueAsset == null)
+            {
+                Debug.LogWarning("Cannot populate view: dialogueAsset is null");
+                return;
+            }
+
+            // Limpa o grafo
+            graphViewChanged -= OnGraphViewChanged;
+
+            DeleteElements(graphElements.ToList());
+
+            graphViewChanged += OnGraphViewChanged;
+
+            // Cria os nós
+            foreach (var nodeData in dialogueAsset.Nodes)
+            {
+                CreateNodeView(nodeData);
+            }
+
+            // Cria as conexões
+            foreach (var connection in dialogueAsset.Connections)
+            {
+                var outputNode = nodes.ToList().Find(n => (n as BaseNodeView)?.NodeData.guid == connection.OutputNodeGuid) as BaseNodeView;
+                var inputNode = nodes.ToList().Find(n => (n as BaseNodeView)?.NodeData.guid == connection.InputNodeGuid) as BaseNodeView;
+
+                if (outputNode != null && inputNode != null)
                 {
-                    RemoveNodeFromAsset(nodeView);
-                }
-                else if (element is Edge edge)
-                {
-                    RemoveEdgeFromAsset(edge);
+                    var outputPorts = outputNode.outputContainer.Query<Port>().ToList();
+                    var inputPort = inputNode.inputContainer.Q<Port>();
+
+                    if (connection.OutputPortIndex < outputPorts.Count && inputPort != null)
+                    {
+                        var edge = outputPorts[connection.OutputPortIndex].ConnectTo(inputPort);
+                        AddElement(edge);
+                    }
                 }
             }
         }
 
-        // Edges criados
-        if (change.edgesToCreate != null)
+        /// <summary>
+        /// Popula a view com um novo DialogueAsset
+        /// </summary>
+        /// <param name="asset">O asset a ser carregado</param>
+        public void PopulateView(DialogueAsset asset)
         {
-            foreach (var edge in change.edgesToCreate)
+            dialogueAsset = asset;
+            PopulateView();
+        }
+
+        private void CreateNodeView(BaseNodeData nodeData)
+        {
+            BaseNodeView nodeView = null;
+
+            if (nodeData is RootNodeData rootData)
             {
-                CreateConnectionFromEdge(edge);
+                nodeView = new RootNodeView(rootData);
+            }
+            else if (nodeData is SpeechNodeData speechData)
+            {
+                nodeView = new SpeechNodeView(speechData);
+            }
+            else if (nodeData is OptionNodeData optionData)
+            {
+                nodeView = new OptionNodeView(optionData);
+            }
+
+            if (nodeView != null)
+            {
+                nodeView.SetPosition(new Rect(nodeData.EditorPosition, Vector2.zero));
+                SetupNodePorts(nodeView);
+                AddElement(nodeView);
             }
         }
 
-        // Elementos movidos
-        if (change.movedElements != null)
+        // ==================== CONTEXT MENU ====================
+
+        public override void BuildContextualMenu(ContextualMenuPopulateEvent evt)
         {
-            foreach (var element in change.movedElements)
-            {
-                if (element is BaseNodeView nodeView)
-                {
-                    nodeView.NodeData.EditorPosition = nodeView.GetPosition().position;
-                    EditorUtility.SetDirty(currentAsset);
-                }
-            }
-        }
+            base.BuildContextualMenu(evt);
 
-        return change;
-    }
-
-    private void RemoveNodeFromAsset(BaseNodeView nodeView)
-    {
-        // Não permite remover o nó raiz
-        if (nodeView.NodeData is RootNodeData)
-        {
-            EditorUtility.DisplayDialog("Error", "Cannot delete the Root node.", "OK");
-            return;
-        }
-
-        currentAsset.RemoveNode(nodeView.NodeData);
-        nodeViewsCache.Remove(nodeView.NodeData.GUID);
-        EditorUtility.SetDirty(currentAsset);
-    }
-
-    private void RemoveEdgeFromAsset(Edge edge)
-    {
-        if (edge.userData is ConnectionData connectionData)
-        {
-            currentAsset.Connections.Remove(connectionData);
-            EditorUtility.SetDirty(currentAsset);
-        }
-    }
-
-    private void CreateConnectionFromEdge(Edge edge)
-    {
-        var outputNode = edge.output.node as BaseNodeView;
-        var inputNode = edge.input.node as BaseNodeView;
-
-        if (outputNode == null || inputNode == null) return;
-
-        var connectionData = new ConnectionData
-        {
-            FromNodeGUID = outputNode.NodeData.GUID,
-            FromPortIndex = outputNode.GetPortIndex(edge.output),
-            ToNodeGUID = inputNode.NodeData.GUID,
-            ToPortIndex = inputNode.GetPortIndex(edge.input)
-        };
-
-        currentAsset.AddConnection(connectionData);
-        edge.userData = connectionData;
-        EditorUtility.SetDirty(currentAsset);
-    }
-
-    /// <summary>
-    /// Configura o menu de contexto (botão direito do mouse).
-    /// </summary>
-    private void SetupContextMenu()
-    {
-        this.RegisterCallback<ContextualMenuPopulateEvent>(evt =>
-        {
             if (evt.target is DialogueGraphView)
             {
-                var mousePosition = this.ChangeCoordinatesTo(contentViewContainer, evt.localMousePosition);
+                Vector2 screenPosition = GUIUtility.GUIToScreenPoint(evt.originalMousePosition);
 
-                // ✅ ADICIONA OPÇÃO PARA CRIAR ROOT NODE
-                if (currentAsset.RootNode == null)
-                {
-                    evt.menu.AppendAction("Create Root Node", _ => CreateRootNode(mousePosition));
-                    evt.menu.AppendSeparator();
-                }
-
-                evt.menu.AppendAction("Create Speech Node", _ => CreateNode<SpeechNodeData>(mousePosition));
-                evt.menu.AppendAction("Create Option Node", _ => CreateNode<OptionNodeData>(mousePosition));
                 evt.menu.AppendSeparator();
-                evt.menu.AppendAction("Delete Selection", _ => DeleteSelection());
+                evt.menu.AppendAction("Add Node...",
+                    action => OpenSearchWindow(null, screenPosition));
             }
-        });
-    }
-
-    // ✅ MÉTODO PARA CRIAR ROOT NODE
-    private void CreateRootNode(Vector2 position)
-    {
-        if (currentAsset == null)
-        {
-            Debug.LogError("No DialogueAsset loaded!");
-            return;
         }
 
-        // Verifica se já existe um Root Node
-        if (currentAsset.RootNode != null)
+        // ==================== PORT COMPATIBILITY ====================
+
+        public override List<Port> GetCompatiblePorts(Port startPort, NodeAdapter nodeAdapter)
         {
-            EditorUtility.DisplayDialog("Error", "This dialogue already has a Root Node!", "OK");
-            return;
+            return ports.ToList().Where(endPort =>
+                endPort.direction != startPort.direction &&
+                endPort.node != startPort.node
+            ).ToList();
         }
-
-        var rootNode = NodeFactory.CreateNode<RootNodeData>();
-        rootNode.EditorPosition = position;
-
-        currentAsset.AddNode(rootNode);
-
-        EditorUtility.SetDirty(currentAsset);
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
-
-        var nodeView = CreateNodeView(rootNode);
-        if (nodeView != null)
-        {
-            nodeView.SetPosition(new Rect(position, Vector2.zero));
-        }
-    }
-
-
-    /// Cria um novo nó na posição especificada.
-    /// CORRIGIDO: Salva o asset imediatamente após criar o nó.
-    /// </summary>
-    private void CreateNode<T>(Vector2 position) where T : BaseNodeData, new()
-    {
-        if (currentAsset == null)
-        {
-            Debug.LogError("No DialogueAsset loaded!");
-            return;
-        }
-
-        var nodeData = NodeFactory.CreateNode<T>();
-        nodeData.EditorPosition = position;
-
-        currentAsset.AddNode(nodeData);
-
-        // CORREÇÃO CRÍTICA: Marca o asset como dirty e força salvamento
-        UnityEditor.EditorUtility.SetDirty(currentAsset);
-        UnityEditor.AssetDatabase.SaveAssets();
-        UnityEditor.AssetDatabase.Refresh();
-
-        // Agora cria a view com os dados já salvos
-        var nodeView = CreateNodeView(nodeData);
-        if (nodeView != null)
-        {
-            nodeView.SetPosition(new Rect(position, Vector2.zero));
-        }
-    }
-
-    /// <summary>
-    /// Sobrescreve a compatibilidade de portas para permitir conexões.
-    /// </summary>
-    public override List<Port> GetCompatiblePorts(Port startPort, NodeAdapter nodeAdapter)
-    {
-        return ports.ToList().Where(endPort =>
-            endPort.direction != startPort.direction &&
-            endPort.node != startPort.node
-        ).ToList();
-    }
-
-    /// <summary>
-    /// Retorna o NodeView associado a um NodeData.
-    /// </summary>
-    public BaseNodeView GetNodeView(BaseNodeData nodeData)
-    {
-        return nodeViewsCache.TryGetValue(nodeData.GUID, out var view) ? view : null;
     }
 }

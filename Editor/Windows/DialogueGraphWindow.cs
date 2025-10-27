@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
+using ChspDev.DialogueSystem.Editor;
 
 /// <summary>
 /// Janela principal do editor de gráfico de diálogo.
@@ -52,6 +53,7 @@ public class DialogueGraphWindow : EditorWindow
 
         if (currentAsset != null)
         {
+            //graphView.PopulateView(currentAsset);
             graphView.PopulateView(currentAsset);
         }
     }
@@ -85,7 +87,7 @@ public class DialogueGraphWindow : EditorWindow
 
     private void InitializeGraphView()
     {
-        graphView = new DialogueGraphView(this);
+        graphView = new DialogueGraphView(currentAsset, this);
         graphView.style.flexGrow = 1;
         mainContainer.Add(graphView); // ✅ Adiciona ao container, não ao root
     }
