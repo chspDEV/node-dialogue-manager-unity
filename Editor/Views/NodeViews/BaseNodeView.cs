@@ -70,7 +70,7 @@ public abstract class BaseNodeView : Node
 
     protected virtual string GetPortName(Direction direction, int index)
     {
-        return direction == Direction.Input ? "In" : "Out";
+        return string.Empty; //sem nome In e Out 
     }
 
     protected abstract void CreateNodeContent();
@@ -104,7 +104,29 @@ public abstract class BaseNodeView : Node
     /// </summary>
     public virtual void UpdateNodeView()
     {
+        // 1. Atualiza o título
         title = nodeData.GetDisplayTitle();
+
+        // 2. Limpa as portas de entrada antigas
+        foreach (var port in inputPorts)
+        {
+            inputContainer.Remove(port);
+        }
+        inputPorts.Clear();
+
+        // 3. Limpa as portas de saída antigas
+        foreach (var port in outputPorts)
+        {
+            outputContainer.Remove(port);
+        }
+        outputPorts.Clear();
+
+        // 4. Recria as portas com os dados atualizados
+        CreatePorts();
+
+        // 5. Atualiza o layout visual do nó
+        RefreshPorts();
+        RefreshExpandedState();
     }
 
     /// <summary>

@@ -49,7 +49,7 @@ public class OptionNodeData : BaseNodeData
     public float TimeoutDuration { get => timeoutDuration; set => timeoutDuration = value; }
     public int DefaultOptionIndex { get => defaultOptionIndex; set => defaultOptionIndex = value; }
 
-    public override string GetDisplayTitle() => "🔀 Player Choice";
+    public override string GetDisplayTitle() => "❓ Player Choice";
     public override int GetOutputPortCount() => Options.Count;
     public override int GetInputPortCount() => 1;
 

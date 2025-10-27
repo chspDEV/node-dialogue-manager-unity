@@ -1,132 +1,137 @@
 ﻿/* ===================================
    Dialogue Graph Editor Styles
-   Estilos para o GraphView do editor
+   TEMA MODERNO - ROXO 
    =================================== */
 
 /* Grid Background */
 GridBackground {
-    --grid-background-color: #1e1e1e;
-    --line-color: rgba(255, 255, 255, 0.1);
-    --thick-line-color: rgba(255, 255, 255, 0.15);
+    --grid-background-color: #242029; /* Roxo muito escuro */
+    --line-color: rgba(215, 200, 230, 0.1); /* Linhas lavanda fracas */
+    --thick-line-color: rgba(215, 200, 230, 0.15);
     --spacing: 20;
 }
 
 /* Graph View */
 DialogueGraphView {
-    background-color: #1e1e1e;
+    background-color: #242029;
 }
 
 /* Toolbar */
 Toolbar {
-    background-color: #2d2d2d;
+    background-color: #2C2431; /* Roxo escuro */
     border-bottom-width: 1px;
     border-bottom-color: #1a1a1a;
     height: 30px;
 }
-
 ToolbarButton {
     margin: 2px;
-    padding: 4px 8px;
-    background-color: #3c3c3c;
-    border-radius: 3px;
+    padding: 4px 10px;
+    background-color: #3A3042; /* Corpo do nó */
+    border-radius: 5px;
     -unity-text-align: middle-center;
+    color: #E0D8E8;
 }
-
 ToolbarButton:hover {
-    background-color: #505050;
+    background-color: #4A3C59; /* Cabeçalho do nó */
 }
-
 ToolbarButton:active {
-    background-color: #0d47a1;
+    background-color: #7F5AF0; /* Destaque principal */
+    color: #ffffff;
 }
 
-/* Nodes - Base Styles */
+/* ===================================
+   Nodes
+   =================================== */
+
+/* Nodes - Base Styles (Estilo Padrão / Speech Node) */
 .dialogue-node {
     min-width: 200px;
     max-width: 300px;
-    background-color: #2d2d2d;
-    border-color: #1a1a1a;
-    border-width: 2px;
+    background-color: #3A3042; /* Corpo roxo escuro */
+    border-color: #2C2431;     /* Borda mais escura */
+    border-width: 1px;         /* Borda fina moderna */
     border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
-
 .dialogue-node:selected {
-    border-color: #0d47a1;
-    border-width: 3px;
+    border-color: #7F5AF0; /* Destaque roxo vibrante */
+    border-width: 2px;
 }
-
 .dialogue-node:hover {
-    border-color: #505050;
+    border-color: #5E4B70; /* Roxo médio */
 }
-
 .dialogue-node #title {
-    background-color: #3c3c3c;
-    color: #ffffff;
+    background-color: #4A3C59; /* Cabeçalho roxo médio */
+    color: #E0D8E8;          /* Texto lavanda claro */
     font-size: 14px;
     -unity-font-style: bold;
-    padding: 8px;
-    border-top-left-radius: 6px;
-    border-top-right-radius: 6px;
+    padding: 8px 12px;
+    border-top-left-radius: 7px;
+    border-top-right-radius: 7px;
+    border-bottom-width: 1px;
+    border-bottom-color: #2C2431; /* Linha separadora */
 }
-
 .dialogue-node #title-label {
     -unity-text-align: middle-left;
 }
 
-/* Root Node */
+/* Root Node Override */
 .root-node #title {
-    background-color: #1b5e20;
+    background-color: #044a42; /* Verde-azulado escuro */
+    border-bottom-color: #022b26;
 }
-
 .root-node {
-    border-color: #2e7d32;
+    border-color: #044a42;
 }
-
 .root-node:selected {
-    border-color: #4caf50;
+    border-color: #08d9c0; /* Verde-azulado vibrante */
 }
 
-/* Speech Node */
-.speech-node #title {
-    background-color: #01579b;
-}
-
+/* Speech Node (Usa o estilo base) */
 .speech-node {
-    border-color: #0277bd;
+    /* Herda de .dialogue-node */
 }
 
-.speech-node:selected {
-    border-color: #03a9f4;
-}
-
-/* Option Node */
+/* Option Node Override */
 .option-node #title {
-    background-color: #e65100;
+    background-color: #6d1a49; /* Magenta escuro */
+    border-bottom-color: #4a1131;
 }
-
 .option-node {
-    border-color: #f57c00;
+    border-color: #6d1a49;
+}
+.option-node:selected {
+    border-color: #f0208b; /* Magenta vibrante */
 }
 
-.option-node:selected {
-    border-color: #ff9800;
+/* Alinha as portas de ENTRADA (esquerda) */
+.dialogue-node #input {
+    align-items: flex-start;
 }
+
+/* Alinha as portas de SAÍDA (direita) */
+.dialogue-node #output {
+    align-items: flex-end;
+}
+
+/* ===================================
+   Content & Ports
+   =================================== */
 
 /* Node Content Preview */
 .node-content-preview {
     padding: 10px;
-    background-color: #252525;
-    margin: 5px;
-    border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.2); /* Overlay escuro */
+    margin: 8px;
+    border-radius: 6px;
 }
-
 .character-name-preview {
-    color: #64b5f6;
+    color: #f0208b; /* Destaque magenta */
+    -unity-font-style: bold;
     margin-bottom: 5px;
 }
-
 .dialogue-preview {
-    color: #cccccc;
+    color: #C0B8CC; /* Texto do corpo (mais claro) */
     white-space: normal;
 }
 
@@ -135,47 +140,20 @@ Port {
     height: 20px;
     margin: 2px 0;
 }
-
 .port {
-    background-color: #505050;
+    background-color: #5E4B70; /* Roxo médio */
     border-radius: 10px;
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
+    border-width: 0;
 }
-
 .port:hover {
-    background-color: #0d47a1;
+    background-color: #7F5AF0; /* Destaque roxo vibrante */
+    scale: 1.1 1.1;
 }
 
+/* Conectores (ao arrastar) */
 #connector {
     background-color: #ffffff;
     border-radius: 10px;
     width: 10px;
-    height: 10px;
-}
-
-#connector:hover {
-    background-color: #03a9f4;
-}
-
-/* Edges (Connections) */
-.edge {
-    --edge-width: 3;
-    --edge-color: rgba(255, 255, 255, 0.6);
-}
-
-.edge:selected {
-    --edge-width: 4;
-    --edge-color: #0d47a1;
-}
-
-.edge:hover {
-    --edge-color: rgba(255, 255, 255, 0.9);
-}
-
-/* Selection Box */
-#selection-border {
-    border-color: #0d47a1;
-    border-width: 2px;
-    background-color: rgba(13, 71, 161, 0.2);
-}

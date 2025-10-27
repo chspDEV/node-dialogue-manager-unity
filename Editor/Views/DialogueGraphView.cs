@@ -39,6 +39,29 @@ public class DialogueGraphView : GraphView
 
         // Configura callback de criação de edges
         graphViewChanged = OnGraphViewChanged;
+
+        // Inscreve-se no evento de atualização
+        DialogueEditorEvents.OnNodeViewUpdateRequest += HandleNodeViewUpdate;
+
+        // Garante que vamos nos desinscrever quando o GraphView for destruído
+        RegisterCallback<DetachFromPanelEvent>(evt =>
+            DialogueEditorEvents.OnNodeViewUpdateRequest -= HandleNodeViewUpdate
+        );
+    }
+
+    private void HandleNodeViewUpdate(BaseNodeData nodeData)
+    {
+        if (nodeData == null || currentAsset == null) return;
+
+        // Verifica se a atualização é para um nó neste grafo
+        if (!currentAsset.Nodes.Contains(nodeData)) return;
+
+        // Tenta encontrar a view correspondente no cache
+        if (nodeViewsCache.TryGetValue(nodeData.GUID, out BaseNodeView nodeView))
+        {
+            // Encontrou! Manda ela se atualizar.
+            nodeView.UpdateNodeView();
+        }
     }
 
     /// <summary>

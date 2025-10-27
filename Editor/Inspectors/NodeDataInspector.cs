@@ -12,11 +12,25 @@ public class NodeDataInspector : Editor
 {
     private BaseNodeData nodeData;
     private SerializedProperty actionsProperty;
+    private SerializedProperty optionsProperty;
 
     private void OnEnable()
     {
         nodeData = target as BaseNodeData;
-        actionsProperty = serializedObject.FindProperty("actions");
+        actionsProperty = serializedObject.FindProperty("actions"); // Verifique se é "actions" ou "Actions"
+
+        // Cacheia a propriedade da lista de opções
+        // Verifique se é "options" ou "Options" no seu OptionNodeData.cs
+        optionsProperty = serializedObject.FindProperty("options");
+    }
+
+    private void NotifyViewOfChange()
+    {
+        // 'target' é o ScriptableObject (BaseNodeData) que está sendo inspecionado
+        if (target is BaseNodeData nodeData)
+        {
+            DialogueEditorEvents.RequestNodeViewUpdate(nodeData);
+        }
     }
 
     public override void OnInspectorGUI()
@@ -110,20 +124,26 @@ public class NodeDataInspector : Editor
         // Botão para adicionar opção
         if (GUILayout.Button("+ Add Option"))
         {
-            optionNode.Options.Add(new OptionNodeData.Option());
-            EditorUtility.SetDirty(target);
+            optionsProperty.InsertArrayElementAtIndex(optionsProperty.arraySize);
+
+            // FORÇA A ATUALIZAÇÃO DO OBJETO C# IMEDIATAMENTE
+            serializedObject.ApplyModifiedProperties();
+
+            NotifyViewOfChange(); // Agora a notificação é enviada APÓS o objeto estar atualizado
         }
 
         EditorGUILayout.Space(5);
 
-        // Desenha cada opção
-        for (int i = 0; i < optionNode.Options.Count; i++)
+        for (int i = 0; i < optionsProperty.arraySize; i++)
         {
-            DrawOptionField(optionNode.Options[i], i, optionNode);
+            SerializedProperty optionProp = optionsProperty.GetArrayElementAtIndex(i);
+
+            // Remove o 'optionNode' da chamada
+            DrawOptionField(optionProp, i);
         }
     }
 
-    private void DrawOptionField(OptionNodeData.Option option, int index, OptionNodeData optionNode)
+    private void DrawOptionField(SerializedProperty optionProp, int index)
     {
         EditorGUILayout.BeginVertical("box");
 
@@ -132,25 +152,35 @@ public class NodeDataInspector : Editor
 
         if (GUILayout.Button("Remove", GUILayout.Width(70)))
         {
-            optionNode.Options.RemoveAt(index);
-            EditorUtility.SetDirty(target);
+            optionsProperty.DeleteArrayElementAtIndex(index);
+
+            // FORÇA A ATUALIZAÇÃO
+            serializedObject.ApplyModifiedProperties();
+
+            NotifyViewOfChange();
             return;
         }
+
         EditorGUILayout.EndHorizontal();
 
-        option.optionText = EditorGUILayout.TextField("Text", option.optionText);
+        SerializedProperty optionTextProp = optionProp.FindPropertyRelative("optionText");
+        EditorGUILayout.PropertyField(optionTextProp, new GUIContent("Text"));
 
         EditorGUILayout.Space(5);
         EditorGUILayout.LabelField("Conditions", EditorStyles.boldLabel);
 
-        DrawConditionsList(option.conditions);
+        // --- ESTA É A CORREÇÃO ---
+        // Pega a propriedade da lista de condições
+        SerializedProperty conditionsProp = optionProp.FindPropertyRelative("conditions");
+
+        // NÃO FAÇA: DrawConditionsList(optionNode.Options[index].conditions);
+        // FAÇA ISSO:
+        DrawConditionsList(conditionsProp);
+        // --- FIM DA CORREÇÃO ---
 
         EditorGUILayout.Space(5);
 
-        SerializedProperty optionsProp = serializedObject.FindProperty("options");
-        SerializedProperty optionProp = optionsProp.GetArrayElementAtIndex(index);
         SerializedProperty onSelectedProp = optionProp.FindPropertyRelative("onOptionSelected");
-
         EditorGUILayout.PropertyField(onSelectedProp, new GUIContent("On Option Selected"));
 
         EditorGUILayout.EndVertical();
@@ -168,43 +198,60 @@ public class NodeDataInspector : Editor
 
         if (GUILayout.Button("+ Add Action"))
         {
-            ShowActionTypeMenu();
+            // Passa a propriedade serializada para o menu
+            ShowActionTypeMenu(actionsProperty);
         }
 
         EditorGUILayout.Space(5);
 
-        for (int i = 0; i < nodeData.Actions.Count; i++)
+        // Itera sobre a PROPRIEDADE, não a lista C#
+        for (int i = 0; i < actionsProperty.arraySize; i++)
         {
-            DrawActionField(nodeData.Actions[i], i);
+            SerializedProperty actionProp = actionsProperty.GetArrayElementAtIndex(i);
+            DrawActionField(actionProp, i, actionsProperty);
         }
     }
 
-    private void DrawActionField(BaseAction action, int index)
+    private void DrawActionField(SerializedProperty actionProp, int index, SerializedProperty actionsProp)
     {
-        if (action == null) return;
+        // Verifica se a referência é nula (comum com [SerializeReference])
+        if (actionProp.managedReferenceValue == null)
+        {
+            actionsProp.DeleteArrayElementAtIndex(index);
+            EditorUtility.SetDirty(target);
+            return;
+        }
+
+        string typeName = actionProp.managedReferenceValue.GetType().Name;
 
         EditorGUILayout.BeginVertical("box");
-
         EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.LabelField(action.GetType().Name, EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(typeName, EditorStyles.boldLabel);
 
         if (GUILayout.Button("Remove", GUILayout.Width(70)))
         {
-            nodeData.Actions.RemoveAt(index);
+            actionsProp.DeleteArrayElementAtIndex(index);
+
+            // FORÇA A ATUALIZAÇÃO
+            serializedObject.ApplyModifiedProperties();
+
             EditorUtility.SetDirty(target);
             return;
         }
         EditorGUILayout.EndHorizontal();
 
-        // Desenha campos da ação usando SerializedProperty
-        SerializedProperty actionProp = actionsProperty.GetArrayElementAtIndex(index);
+        // Desenha todos os campos dentro da ação automaticamente
         var iterator = actionProp.Copy();
         var endProperty = iterator.GetEndProperty();
-
-        iterator.NextVisible(true); // Pula para o primeiro filho
+        iterator.NextVisible(true); // Pula o campo "m_ManagedReference"
 
         while (!SerializedProperty.EqualContents(iterator, endProperty))
         {
+            if (iterator.name == "variableName") // Exemplo de como pular um campo
+            {
+                // Poderia desenhar "variableName" de forma customizada aqui
+            }
+
             EditorGUILayout.PropertyField(iterator, true);
             if (!iterator.NextVisible(false)) break;
         }
@@ -213,66 +260,104 @@ public class NodeDataInspector : Editor
         EditorGUILayout.Space(3);
     }
 
-    private void DrawConditionsList(List<BaseCondition> conditions)
+    
+    private void DrawConditionsList(SerializedProperty conditionsProp)
     {
         if (GUILayout.Button("+ Add Condition", GUILayout.Width(120)))
         {
-            ShowConditionTypeMenu(conditions);
+            // Passa a propriedade, não a lista C#
+            ShowConditionTypeMenu(conditionsProp);
         }
 
-        for (int i = 0; i < conditions.Count; i++)
+        // Itera sobre a propriedade
+        for (int i = 0; i < conditionsProp.arraySize; i++)
         {
-            DrawConditionField(conditions[i], i, conditions);
+            SerializedProperty conditionProp = conditionsProp.GetArrayElementAtIndex(i);
+            // Passa a propriedade da condição e a propriedade da lista
+            DrawConditionField(conditionProp, i, conditionsProp);
         }
     }
 
-    private void DrawConditionField(BaseCondition condition, int index, List<BaseCondition> conditions)
+    private void DrawConditionField(SerializedProperty conditionProp, int index, SerializedProperty conditionsProp)
     {
-        if (condition == null) return;
+        // [SerializeReference] pode deixar entradas nulas se algo der errado
+        if (conditionProp.managedReferenceValue == null)
+        {
+            // Se for nulo, apenas remove e sai
+            conditionsProp.DeleteArrayElementAtIndex(index);
+            EditorUtility.SetDirty(target);
+            return;
+        }
+
+        // Pega os dados de dentro da propriedade
+        string typeName = conditionProp.managedReferenceValue.GetType().Name;
+        SerializedProperty varNameProp = conditionProp.FindPropertyRelative("variableName");
+        string varName = varNameProp != null ? varNameProp.stringValue : "[ERROR]";
 
         EditorGUILayout.BeginHorizontal("box");
 
-        EditorGUILayout.LabelField($"{condition.GetType().Name}", GUILayout.Width(120));
-        EditorGUILayout.LabelField($"Var: {condition.VariableName}");
+        EditorGUILayout.LabelField($"{typeName}", GUILayout.Width(120));
+        EditorGUILayout.LabelField($"Var: {varName}");
 
         if (GUILayout.Button("X", GUILayout.Width(25)))
         {
-            conditions.RemoveAt(index);
+            // Remove da propriedade, não da lista C#
+            conditionsProp.DeleteArrayElementAtIndex(index);
+
+            // FORÇA A ATUALIZAÇÃO
+            serializedObject.ApplyModifiedProperties();
+
             EditorUtility.SetDirty(target);
         }
 
         EditorGUILayout.EndHorizontal();
     }
 
-    private void ShowActionTypeMenu()
+    private void ShowActionTypeMenu(SerializedProperty actionsProp)
     {
         GenericMenu menu = new GenericMenu();
-        menu.AddItem(new GUIContent("Set Bool"), false, () => AddAction<SetBoolAction>());
-        menu.AddItem(new GUIContent("Set Int"), false, () => AddAction<SetIntAction>());
-        menu.AddItem(new GUIContent("Set Float"), false, () => AddAction<SetFloatAction>());
-        menu.AddItem(new GUIContent("Set String"), false, () => AddAction<SetStringAction>());
+        menu.AddItem(new GUIContent("Set Bool"), false, () => AddAction<SetBoolAction>(actionsProp));
+        menu.AddItem(new GUIContent("Set Int"), false, () => AddAction<SetIntAction>(actionsProp));
+        menu.AddItem(new GUIContent("Set Float"), false, () => AddAction<SetFloatAction>(actionsProp));
+        menu.AddItem(new GUIContent("Set String"), false, () => AddAction<SetStringAction>(actionsProp));
         menu.ShowAsContext();
     }
 
-    private void ShowConditionTypeMenu(List<BaseCondition> conditions)
+    private void ShowConditionTypeMenu(SerializedProperty conditionsProp)
     {
         GenericMenu menu = new GenericMenu();
-        menu.AddItem(new GUIContent("Bool Condition"), false, () => AddCondition<BoolCondition>(conditions));
-        menu.AddItem(new GUIContent("Int Condition"), false, () => AddCondition<IntCondition>(conditions));
-        menu.AddItem(new GUIContent("Float Condition"), false, () => AddCondition<FloatCondition>(conditions));
-        menu.AddItem(new GUIContent("String Condition"), false, () => AddCondition<StringCondition>(conditions));
+        menu.AddItem(new GUIContent("Bool Condition"), false, () => AddCondition<BoolCondition>(conditionsProp));
+        menu.AddItem(new GUIContent("Int Condition"), false, () => AddCondition<IntCondition>(conditionsProp));
+        menu.AddItem(new GUIContent("Float Condition"), false, () => AddCondition<FloatCondition>(conditionsProp));
+        menu.AddItem(new GUIContent("String Condition"), false, () => AddCondition<StringCondition>(conditionsProp));
         menu.ShowAsContext();
     }
 
-    private void AddAction<T>() where T : BaseAction, new()
+    private void AddCondition<T>(SerializedProperty conditionsProp) where T : BaseCondition, new()
     {
-        nodeData.Actions.Add(new T());
+        // Adiciona um novo elemento na lista de propriedades
+        int newIndex = conditionsProp.arraySize;
+        conditionsProp.InsertArrayElementAtIndex(newIndex);
+        SerializedProperty newConditionProp = conditionsProp.GetArrayElementAtIndex(newIndex);
+
+        serializedObject.ApplyModifiedProperties();
+
+        // 'managedReferenceValue' é a forma correta de atribuir
+        // um novo objeto C# a uma propriedade [SerializeReference]
+        newConditionProp.managedReferenceValue = new T();
+
         EditorUtility.SetDirty(target);
     }
 
-    private void AddCondition<T>(List<BaseCondition> conditions) where T : BaseCondition, new()
+    private void AddAction<T>(SerializedProperty actionsProp) where T : BaseAction, new()
     {
-        conditions.Add(new T());
+        int newIndex = actionsProp.arraySize;
+        actionsProp.InsertArrayElementAtIndex(newIndex);
+        SerializedProperty newActionProp = actionsProp.GetArrayElementAtIndex(newIndex);
+        newActionProp.managedReferenceValue = new T();
+
+        serializedObject.ApplyModifiedProperties();
         EditorUtility.SetDirty(target);
     }
+
 }

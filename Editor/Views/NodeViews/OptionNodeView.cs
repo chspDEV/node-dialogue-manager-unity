@@ -37,17 +37,24 @@ public class OptionNodeView : BaseNodeView
 
     protected override string GetPortName(Direction direction, int index)
     {
+        // Se for uma porta de entrada, usa o nome padrão (que agora é string.Empty, perfeito!)
         if (direction == Direction.Input)
-            return "In";
+            return base.GetPortName(direction, index); // Isso vai retornar string.Empty
 
-        // CORREÇÃO: Verifica se a opção existe
-        if (optionData?.Options != null && index < optionData.Options.Count)
+        // Se for uma porta de saída, busca o texto da opção
+        if (nodeData is OptionNodeData optionData && index < optionData.Options.Count)
         {
-            var optionText = optionData.Options[index]?.optionText ?? $"Option {index + 1}";
-            return optionText.Length > 20 ? optionText.Substring(0, 20) + "..." : optionText;
+            string text = optionData.Options[index].optionText;
+
+            if (string.IsNullOrEmpty(text))
+                return $"Option {index + 1}";
+
+            // Trunca o texto se for muito longo
+            return text.Length > 20 ? text.Substring(0, 20) + "..." : text;
         }
 
-        return $"Option {index + 1}";
+        // Fallback (também string.Empty)
+        return base.GetPortName(direction, index);
     }
 
     protected override void CreateNodeContent()

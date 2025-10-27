@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 public class RootNodeView : BaseNodeView
 {
     // O construtor apenas passa os dados para a classe base
-    public RootNodeView(BaseNodeData data) : base(data) { }
+    public RootNodeView(BaseNodeData data) : base(data) { AddToClassList("root-node"); }
 
     // Implementação obrigatória do método abstrato
     protected override void CreateNodeContent()
