@@ -68,6 +68,7 @@ namespace ChspDev.DialogueSystem.Editor
         {
             // Recria todas as portas (base.UpdateNodeView chama CreatePorts)
             base.UpdateNodeView();
+            title = "❓ Options";
         }
 
         ~OptionNodeView()

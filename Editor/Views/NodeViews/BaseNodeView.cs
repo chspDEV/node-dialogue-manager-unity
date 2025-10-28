@@ -54,6 +54,7 @@ public abstract class BaseNodeView : Node
         RefreshExpandedState(); // Garante que o nó esteja expandido/recolhido corretamente
         RefreshPorts();         // Força o redesenho das portas
         // ----------------------------------
+        UpdateNodeView();
     }
 
     /// <summary>

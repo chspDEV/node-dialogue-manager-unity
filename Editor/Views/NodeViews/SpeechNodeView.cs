@@ -61,8 +61,8 @@ namespace ChspDev.DialogueSystem.Editor
 
             // Atualiza título
             title = string.IsNullOrEmpty(speechNodeData.CharacterName)
-                ? "Speech Node"
-                : speechNodeData.CharacterName;
+                ? $"💬 Speech Node"
+                : $"💬 {speechNodeData.CharacterName}";
 
             // Atualiza preview
             if (dialoguePreview != null)
