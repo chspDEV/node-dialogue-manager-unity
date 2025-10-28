@@ -1,6 +1,7 @@
-﻿using UnityEngine;
+﻿using ChspDev.DialogueSystem.Editor;
 using System;
-using ChspDev.DialogueSystem.Editor;
+using System.Linq;
+using UnityEngine;
 
 /// <summary>
 /// Orquestra a execução de um DialogueAsset em runtime.
@@ -20,8 +21,9 @@ public class DialogueRunner : MonoBehaviour
 
     private void Start()
     {
-        // Para teste rápido, inicia o diálogo ao começar a cena.
-        // Em um jogo real, você chamaria StartDialogue() a partir de um NPC, trigger, etc.
+        // ✅ Inicializa o TextProcessor com um provider (ou null se não tiver variáveis)
+        TextProcessor.Initialize(null); // ou new YourVariableProvider() se tiver um
+
         if (dialogueToRun != null)
         {
             StartDialogue(dialogueToRun);
@@ -40,7 +42,29 @@ public class DialogueRunner : MonoBehaviour
         }
 
         currentAsset = asset;
-        currentNode = currentAsset.GetRootNode(); // Precisamos criar este método
+        currentNode = currentAsset.GetRootNode();
+
+        Debug.Log($"[StartDialogue] Asset: {asset.name}");
+        Debug.Log($"[StartDialogue] Root Node GUID: {currentNode?.GUID}");
+
+        // ✅ DEBUG: Imprime TODAS as conexões
+        Debug.Log($"--TODAS AS CONEXÕES({{ asset.Connections.Count}}) ---\n");
+
+
+    foreach (var conn in asset.Connections)
+        {
+            Debug.Log($"  De: {conn.FromNodeGUID} (porta {conn.FromPortIndex}) → Para: {conn.ToNodeGUID}");
+        }
+        Debug.Log("---\n");
+
+
+    // ✅ DEBUG: Procura conexões que saem do root
+        var rootConnections = asset.Connections.Where(c => c.FromNodeGUID == currentNode.GUID).ToList();
+        Debug.Log($"[StartDialogue] Conexões que saem do Root: {rootConnections.Count}");
+        foreach (var conn in rootConnections)
+        {
+            Debug.Log($"  → Para: {conn.ToNodeGUID} (porta {conn.FromPortIndex})");
+        }
 
         if (currentNode == null)
         {

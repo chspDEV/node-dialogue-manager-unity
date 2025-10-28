@@ -1,10 +1,12 @@
-using System;
+﻿using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UIElements;
+using UnityEngine.UIElements.Experimental;
 
 /// <summary>
-/// Gerencia a exibi��o da UI de di�logo em runtime usando UI Toolkit.
+/// Gerencia a exibição da UI de diálogo em runtime usando UI Toolkit.
+/// Sistema completamente responsivo e moderno.
 /// </summary>
 [RequireComponent(typeof(UIDocument))]
 public class DialogueUIManager : MonoBehaviour
@@ -15,6 +17,11 @@ public class DialogueUIManager : MonoBehaviour
 
     [Header("Audio")]
     [SerializeField] private string uiClickSoundID = "UI_Click";
+
+    [Header("Responsiveness")]
+    [SerializeField] private bool autoScale = true;
+    [SerializeField] private float minWidth = 320f;
+    [SerializeField] private float maxWidth = 1920f;
 
     private VisualElement root;
     private VisualElement dialoguePanel;
@@ -37,7 +44,7 @@ public class DialogueUIManager : MonoBehaviour
         typewriter = new TypewriterEffect(dialogueTextLabel, typewriterSpeed);
         controller = new DialogueUIController(this);
 
-        HideUI();
+       // HideUI();
     }
 
     private void InitializeUI()
@@ -49,6 +56,37 @@ public class DialogueUIManager : MonoBehaviour
         dialogueTextLabel = root.Q<Label>("DialogueText");
         characterIconImage = root.Q<VisualElement>("CharacterIcon");
         optionsContainer = root.Q<VisualElement>("OptionsContainer");
+
+        // 🔧 CONFIGURAÇÃO DE PICKING MODE (não pode ser feito no USS)
+        if (root != null)
+            root.pickingMode = PickingMode.Position;
+
+        if (dialoguePanel != null)
+            dialoguePanel.pickingMode = PickingMode.Position;
+
+        if (optionsContainer != null)
+        {
+            optionsContainer.pickingMode = PickingMode.Position;
+            optionsContainer.focusable = false;
+        }
+
+        // 🎨 Aplicar responsividade
+        if (autoScale)
+        {
+            ApplyResponsiveLayout();
+        }
+    }
+
+    private void ApplyResponsiveLayout()
+    {
+        if (dialoguePanel == null) return;
+
+        // Escala baseada na largura da tela
+        float screenWidth = Screen.width;
+        float scale = Mathf.Clamp(screenWidth / 1920f, minWidth / 1920f, maxWidth / 1920f);
+
+        // Aplica escala proporcional
+        root.style.scale = new Scale(new Vector3(scale, scale, 1f));
     }
 
     public void DisplaySpeech(SpeechNodeData node, Action onComplete)
@@ -56,6 +94,9 @@ public class DialogueUIManager : MonoBehaviour
         ShowUI();
 
         onSpeechComplete = onComplete;
+
+        // 🎨 Animação de entrada (opcional)
+        AnimateIn(dialoguePanel);
 
         characterNameLabel.text = node.CharacterName;
 
@@ -90,35 +131,86 @@ public class DialogueUIManager : MonoBehaviour
 
         var availableOptions = node.GetAvailableOptions();
 
+        Debug.Log($"[DialogueUI] Displaying {availableOptions.Count} options");
+
         for (int i = 0; i < availableOptions.Count; i++)
         {
             int optionIndex = node.Options.IndexOf(availableOptions[i]);
             var option = availableOptions[i];
 
-            var button = new Button(() =>
-            {
-                PlayUISound(uiClickSoundID);
-                onOptionSelected?.Invoke(optionIndex);
-            })
-            {
-                text = TextProcessor.ProcessText(option.optionText)
-            };
+            // 🔧 CORREÇÃO CRÍTICA: Criar botão com configuração completa
+            var button = CreateOptionButton(option.optionText, optionIndex, onOptionSelected);
 
-            button.AddToClassList("dialogue-option-button");
             optionsContainer.Add(button);
+
+            Debug.Log($"[DialogueUI] Added button {i}: '{option.optionText}' (index {optionIndex})");
         }
 
-        // Foca no primeiro bot�o
-        var firstButton = optionsContainer.Q<Button>();
-        firstButton?.Focus();
+        // 🎯 Foca no primeiro botão após frame render
+        optionsContainer.schedule.Execute(() =>
+        {
+            var firstButton = optionsContainer.Q<Button>();
+            if (firstButton != null)
+            {
+                firstButton.Focus();
+                Debug.Log("[DialogueUI] First button focused");
+            }
+        }).ExecuteLater(50); // Delay pequeno para garantir render
+    }
 
+    /// <summary>
+    /// 🔧 MÉTODO CORRIGIDO: Cria botão de opção com todas as configurações necessárias
+    /// </summary>
+    private Button CreateOptionButton(string optionText, int optionIndex, Action<int> onOptionSelected)
+    {
+        var button = new Button();
+
+        // 🎯 CONFIGURAÇÕES CRÍTICAS DE INTERATIVIDADE
+        button.pickingMode = PickingMode.Position;
+        button.focusable = true;
+        button.tabIndex = optionIndex;
+
+        // 🎨 Texto processado
+        button.text = TextProcessor.ProcessText(optionText);
+
+        // 🎨 Classes de estilo
+        button.AddToClassList("dialogue-option-button");
+        button.AddToClassList("button-fade-in"); // Animação
+
+        // 🎵 Callback de clique
+        button.clicked += () =>
+        {
+            Debug.Log($"[DialogueUI] Button clicked: index {optionIndex}");
+            PlayUISound(uiClickSoundID);
+
+            // Feedback visual
+            button.AddToClassList("button-clicked");
+
+            onOptionSelected?.Invoke(optionIndex);
+        };
+
+        // 🎨 Hover effect via código (fallback se USS falhar)
+        button.RegisterCallback<MouseEnterEvent>(evt =>
+        {
+            button.AddToClassList("button-hover");
+        });
+
+        button.RegisterCallback<MouseLeaveEvent>(evt =>
+        {
+            button.RemoveFromClassList("button-hover");
+        });
+
+        return button;
     }
 
     public void HideUI()
     {
         if (dialoguePanel != null)
         {
-            dialoguePanel.style.display = DisplayStyle.None;
+            AnimateOut(dialoguePanel, () =>
+            {
+                dialoguePanel.style.display = DisplayStyle.None;
+            });
         }
 
         typewriter?.Stop();
@@ -129,6 +221,13 @@ public class DialogueUIManager : MonoBehaviour
         if (dialoguePanel != null)
         {
             dialoguePanel.style.display = DisplayStyle.Flex;
+            dialoguePanel.style.visibility = Visibility.Visible;
+            dialoguePanel.style.opacity = 1f;
+
+            // 🔧 Força o painel para frente
+            dialoguePanel.BringToFront();
+
+            Debug.Log("[DialogueUI] UI shown and brought to front");
         }
     }
 
@@ -140,27 +239,66 @@ public class DialogueUIManager : MonoBehaviour
 
     private void PlayUISound(string soundID)
     {
-        // Usa canal de �udio unscaled dedicado para UI
-        // Integra��o com sistema de �udio ser� feita atrav�s da interface
         if (!string.IsNullOrEmpty(soundID))
         {
             // Signal.PlaySFX(soundID) seria chamado aqui via interface
+            Debug.Log($"[Audio] Playing UI sound: {soundID}");
         }
+    }
+
+    /// <summary>
+    /// 🎨 Animação suave de entrada
+    /// </summary>
+    private void AnimateIn(VisualElement element)
+    {
+        if (element == null) return;
+
+        element.style.opacity = 0f;
+        element.experimental.animation
+            .Start(new StyleValues { opacity = 1f }, 300)
+            .Ease(Easing.OutCubic);
+    }
+
+    /// <summary>
+    /// 🎨 Animação suave de saída
+    /// </summary>
+    private void AnimateOut(VisualElement element, Action onComplete)
+    {
+        if (element == null)
+        {
+            onComplete?.Invoke();
+            return;
+        }
+
+        element.experimental.animation
+            .Start(new StyleValues { opacity = 0f }, 200)
+            .Ease(Easing.InCubic)
+            .OnCompleted(onComplete);
     }
 
     private void Update()
     {
-        // Input para avan�ar di�logo (New Input System)
-        if (Input.anyKey)
+        // Input para avançar diálogo
+        if (Input.anyKeyDown)
         {
-            if (typewriter.IsTyping)
+            if (typewriter != null && typewriter.IsTyping)
             {
                 typewriter.CompleteInstantly();
             }
-            else
+            else if (optionsContainer.style.display == DisplayStyle.None)
             {
+                // Só avança se não houver opções visíveis
                 onSpeechComplete?.Invoke();
             }
         }
+
+        // 🎨 Atualiza responsividade em tempo real (opcional)
+        if (autoScale && Screen.width != lastScreenWidth)
+        {
+            lastScreenWidth = Screen.width;
+            ApplyResponsiveLayout();
+        }
     }
+
+    private float lastScreenWidth;
 }

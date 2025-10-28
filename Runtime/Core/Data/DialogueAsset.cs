@@ -1,12 +1,12 @@
-using ChspDev.DialogueSystem.Editor;
+Ôªøusing ChspDev.DialogueSystem.Editor;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// ScriptableObject principal que armazena toda a ·rvore de di·logo.
-/// Este È o asset que ser· criado e editado no editor.
+/// ScriptableObject principal que armazena toda a √°rvore de di√°logo.
+/// Este √© o asset que ser√° criado e editado no editor.
 /// </summary>
 [CreateAssetMenu(fileName = "NewDialogue", menuName = "Dialogue System/Dialogue Asset")]
 public class DialogueAsset : ScriptableObject
@@ -35,6 +35,44 @@ public class DialogueAsset : ScriptableObject
         {
             assetGUID = GUID.Generate().ToString();
         }
+
+        // ‚úÖ NOVO: Garante que sempre h√° um root node
+        EnsureRootNodeExists();
+    }
+
+    /// <summary>
+    /// Garante que este asset possui um n√≥ raiz (RootNode).
+    /// Se n√£o existir, cria um automaticamente.
+    /// </summary>
+    private void EnsureRootNodeExists()
+    {
+        // Se j√° existe um root node, n√£o faz nada
+        if (RootNode != null)
+            return;
+
+        Debug.Log($"[DialogueAsset] Root node n√£o encontrado em '{name}'. Criando automaticamente...");
+
+        // Cria uma nova inst√¢ncia de RootNodeData
+        RootNodeData rootNode = ScriptableObject.CreateInstance<RootNodeData>();
+        rootNode.name = "RootNode";
+        rootNode.SetGUID(GUID.Generate().ToString());
+        rootNode.EditorPosition = Vector2.zero; // Posi√ß√£o padr√£o (canto superior esquerdo)
+
+        // Adiciona como sub-asset
+        AssetDatabase.AddObjectToAsset(rootNode, this);
+
+        // Adiciona √† lista de n√≥s
+        nodes.Add(rootNode);
+
+        // Marca como sujo para salvamento
+        EditorUtility.SetDirty(rootNode);
+        EditorUtility.SetDirty(this);
+
+        // For√ßa salvamento
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        Debug.Log($"[DialogueAsset] Root node criado e salvo em '{name}'");
     }
 
     public void AddNode(BaseNodeData node)
@@ -62,35 +100,28 @@ public class DialogueAsset : ScriptableObject
     }
 
     /// <summary>
-    /// Encontra e retorna o nÛ raiz (RootNode) deste di·logo.
+    /// Encontra e retorna o n√≥ raiz (RootNode) deste di√°logo.
     /// </summary>
     public RootNodeData GetRootNode()
     {
-        // Usa LINQ para encontrar o primeiro nÛ que È do tipo RootNodeData
         return nodes.OfType<RootNodeData>().FirstOrDefault();
     }
 
     /// <summary>
-    /// Encontra o prÛximo nÛ conectado a uma porta de saÌda especÌfica.
+    /// Encontra o pr√≥ximo n√≥ conectado a uma porta de sa√≠da espec√≠fica.
     /// </summary>
-    /// <param name="fromNode">O nÛ de origem.</param>
-    /// <param name="portIndex">O Ìndice da porta de saÌda.</param>
-    /// <returns>O nÛ de destino, ou null se n„o houver conex„o.</returns>
     public BaseNodeData GetNextNode(BaseNodeData fromNode, int portIndex = 0)
     {
-        // 1. Encontra a conex„o que sai deste nÛ e desta porta
+        // ‚úÖ Usa FromNodeGUID e FromPortIndex (conjunto antigo)
         var connection = connections.FirstOrDefault(c =>
             c.FromNodeGUID == fromNode.GUID &&
             c.FromPortIndex == portIndex
         );
 
         if (connection == null)
-        {
-            // N„o h· mais conexıes, o di·logo termina
             return null;
-        }
 
-        // 2. Encontra o nÛ de destino usando o GUID da conex„o
+        // ‚úÖ Usa ToNodeGUID (conjunto antigo)
         return nodes.FirstOrDefault(n => n.GUID == connection.ToNodeGUID);
     }
 }

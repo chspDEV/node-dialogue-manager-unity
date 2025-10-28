@@ -12,64 +12,62 @@ namespace ChspDev.DialogueSystem.Editor
         public OptionNodeView(OptionNodeData nodeData) : base(nodeData)
         {
             this.optionNodeData = nodeData;
-
             title = "Option Node";
 
-            var inputPort = InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(bool));
-            inputPort.portName = "In";
-            inputContainer.Add(inputPort);
-
+            // Listener para mudanças nos dados
             DialogueEditorEvents.OnNodeDataChanged += OnNodeDataChanged;
-
-            UpdateOptionPorts();
-
-            RefreshExpandedState();
-            RefreshPorts();
         }
 
+        /// <summary>
+        /// Cria o conteúdo customizado do nó.
+        /// Para OptionNode, o conteúdo é gerenciado via portas de saída.
+        /// </summary>
+        protected override void CreateNodeContent()
+        {
+            // OptionNode não precisa de conteúdo extra no mainContainer.
+            // As opções são exibidas como nomes das portas de saída (ver GetPortName).
+        }
+
+        /// <summary>
+        /// Fornece nomes customizados para as portas de saída.
+        /// </summary>
+        protected override string GetPortName(Direction direction, int index)
+        {
+            // Para portas de entrada, usa o padrão vazio
+            if (direction == Direction.Input)
+                return string.Empty;
+
+            // Para portas de saída, exibe o texto da opção
+            if (optionNodeData?.options != null && index >= 0 && index < optionNodeData.options.Count)
+            {
+                var option = optionNodeData.options[index];
+                return string.IsNullOrEmpty(option.optionText)
+                    ? $"Option {index + 1}"
+                    : option.optionText;
+            }
+
+            return $"Option {index + 1}";
+        }
+
+        /// <summary>
+        /// Observa mudanças nos dados e atualiza a view.
+        /// </summary>
         private void OnNodeDataChanged(BaseNodeData changedNodeData)
         {
             if (changedNodeData == optionNodeData)
             {
-                UpdateOptionPorts();
+                // Força recriação de portas para refletir novas opções
+                UpdateNodeView();
             }
         }
 
-        private void UpdateOptionPorts()
-        {
-            var existingPorts = outputContainer.Query<Port>().ToList();
-            foreach (var port in existingPorts)
-            {
-                outputContainer.Remove(port);
-            }
-
-            if (optionNodeData.options != null)
-            {
-                for (int i = 0; i < optionNodeData.options.Count; i++)
-                {
-                    var option = optionNodeData.options[i];
-                    var port = InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Single, typeof(bool));
-                    port.portName = string.IsNullOrEmpty(option.optionText)
-                        ? $"Option {i + 1}"
-                        : option.optionText;
-                    port.userData = i;
-                    outputContainer.Add(port);
-                }
-            }
-
-            RefreshPorts();
-        }
-
-        protected override void CreateNodeContent()
-        {
-            // OptionNode não precisa de conteúdo extra além das portas
-            // As opções são exibidas como nomes das portas de saída
-        }
-
+        /// <summary>
+        /// Atualiza a visualização quando o número de opções muda.
+        /// </summary>
         public override void UpdateNodeView()
         {
-            // Atualiza as portas quando os dados mudam
-            UpdateOptionPorts();
+            // Recria todas as portas (base.UpdateNodeView chama CreatePorts)
+            base.UpdateNodeView();
         }
 
         ~OptionNodeView()

@@ -41,25 +41,36 @@ namespace ChspDev.DialogueSystem.Editor
         public List<SearchTreeEntry> CreateSearchTree(SearchWindowContext context)
         {
             var tree = new List<SearchTreeEntry>
-            {
-                // Título principal
-                new SearchTreeGroupEntry(new GUIContent("Create Dialogue Node"), 0),
+    {
+        // Título principal
+        new SearchTreeGroupEntry(new GUIContent("Create Dialogue Node"), 0),
+    };
 
-                // Nós disponíveis (adicione mais conforme cria novos tipos de NodeData)
-                new SearchTreeEntry(new GUIContent("Speech Node"))
-                {
-                    level = 1, // Nível de indentação
-                    userData = typeof(SpeechNodeData) // Dados associados (o tipo de NodeData a criar)
-                },
-                new SearchTreeEntry(new GUIContent("Option Node"))
+            // ✅ NOVO: Só mostra root node se não existir um
+            if (graphView?.dialogueAsset?.RootNode == null)
+            {
+                tree.Add(new SearchTreeEntry(new GUIContent("Root Node"))
                 {
                     level = 1,
-                    userData = typeof(OptionNodeData)
-                },
-                // Exemplo: new SearchTreeEntry(new GUIContent("Branch Node")) { level = 1, userData = typeof(BranchNodeData) },
-            };
+                    userData = typeof(RootNodeData)
+                });
 
-            // Você pode adicionar mais SearchTreeGroupEntry para criar categorias (Lógica, Eventos, etc.)
+                // Separador visual (opcional)
+                tree.Add(new SearchTreeGroupEntry(new GUIContent(""), 1));
+            }
+
+            // Nós disponíveis
+            tree.Add(new SearchTreeEntry(new GUIContent("Speech Node"))
+            {
+                level = 1,
+                userData = typeof(SpeechNodeData)
+            });
+
+            tree.Add(new SearchTreeEntry(new GUIContent("Option Node"))
+            {
+                level = 1,
+                userData = typeof(OptionNodeData)
+            });
 
             return tree;
         }
@@ -99,13 +110,14 @@ namespace ChspDev.DialogueSystem.Editor
             return true; // Indica que a seleção foi bem-sucedida
         }
 
-        /// <summary>
-        /// Chama o método de criação apropriado no GraphView com base no tipo de nó selecionado.
-        /// </summary>
         private BaseNodeView CreateNodeByType(Type nodeType, Vector2 position)
         {
-            // Mapeia o tipo de NodeData para o método de criação correspondente no DialogueGraphView
-            if (nodeType == typeof(SpeechNodeData))
+            // ✅ NOVO: Root Node
+            if (nodeType == typeof(RootNodeData))
+            {
+                return graphView.CreateRootNode(position);
+            }
+            else if (nodeType == typeof(SpeechNodeData))
             {
                 return graphView.CreateSpeechNode(position);
             }
@@ -113,8 +125,6 @@ namespace ChspDev.DialogueSystem.Editor
             {
                 return graphView.CreateOptionNode(position);
             }
-            // Adicione 'else if' para outros tipos de nós aqui
-            // else if (nodeType == typeof(BranchNodeData)) { return graphView.CreateBranchNode(position); }
 
             Debug.LogWarning($"Criação de nó não implementada para o tipo: {nodeType.Name} em NodeSearchWindow.");
             return null;

@@ -12,25 +12,16 @@ namespace ChspDev.DialogueSystem.Editor
         public SpeechNodeView(SpeechNodeData nodeData) : base(nodeData)
         {
             this.speechNodeData = nodeData;
-
             title = "Speech Node";
 
-            var inputPort = InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(bool));
-            inputPort.portName = "In";
-            inputContainer.Add(inputPort);
-
-            var outputPort = InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Single, typeof(bool));
-            outputPort.portName = "Out";
-            outputContainer.Add(outputPort);
-
+            // Listener para mudanças nos dados
             DialogueEditorEvents.OnNodeDataChanged += OnNodeDataChanged;
-
-            UpdateNodeView();
-
-            RefreshExpandedState();
-            RefreshPorts();
         }
 
+        /// <summary>
+        /// Cria o conteúdo customizado do nó (preview do diálogo).
+        /// Chamado automaticamente pela classe base.
+        /// </summary>
         protected override void CreateNodeContent()
         {
             // Cria o preview do texto do diálogo
@@ -45,28 +36,51 @@ namespace ChspDev.DialogueSystem.Editor
             dialoguePreview.style.paddingRight = 8;
 
             mainContainer.Add(dialoguePreview);
+
+            // Atualiza o preview com dados iniciais
+            UpdatePreview();
         }
 
+        /// <summary>
+        /// Atualiza a visualização quando os dados mudam.
+        /// </summary>
         private void OnNodeDataChanged(BaseNodeData changedNodeData)
         {
             if (changedNodeData == speechNodeData)
             {
-                UpdateNodeView();
+                UpdatePreview();
             }
         }
 
-        public override void UpdateNodeView()
+        /// <summary>
+        /// Atualiza o título e preview do nó.
+        /// </summary>
+        private void UpdatePreview()
         {
+            if (speechNodeData == null) return;
+
+            // Atualiza título
             title = string.IsNullOrEmpty(speechNodeData.CharacterName)
                 ? "Speech Node"
                 : speechNodeData.CharacterName;
 
+            // Atualiza preview
             if (dialoguePreview != null)
             {
                 dialoguePreview.text = string.IsNullOrEmpty(speechNodeData.DialogueText)
                     ? "<i>Empty dialogue...</i>"
                     : speechNodeData.DialogueText;
             }
+        }
+
+        /// <summary>
+        /// Atualiza a aparência do nó (título, portas, conteúdo).
+        /// Chamado pelo GraphView após Undo/Redo.
+        /// </summary>
+        public override void UpdateNodeView()
+        {
+            base.UpdateNodeView(); // Chama a implementação base para portas
+            UpdatePreview();       // Atualiza preview adicional
         }
 
         ~SpeechNodeView()
