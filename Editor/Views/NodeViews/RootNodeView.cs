@@ -4,20 +4,23 @@ using UnityEngine.UIElements;
 /// <summary>
 /// Visualização para o RootNodeData.
 /// </summary>
-public class RootNodeView : BaseNodeView
+namespace ChspDev.DialogueSystem.Editor 
 {
-    // O construtor apenas passa os dados para a classe base
-    public RootNodeView(BaseNodeData data) : base(data) { AddToClassList("root-node"); }
-
-    // Implementação obrigatória do método abstrato
-    protected override void CreateNodeContent()
+    public class RootNodeView : BaseNodeView
     {
-        // O nó raiz não precisa de nenhum conteúdo customizado no 'mainContainer'.
-        // O título (de data.GetDisplayTitle()) e as portas (criadas pela
-        // classe base) já são suficientes.
-    }
+        // O construtor apenas passa os dados para a classe base
+        public RootNodeView(BaseNodeData data) : base(data) { AddToClassList("root-node"); }
 
-    // Nota: O CreatePorts() da sua classe base já cuida de tudo,
-    // desde que seu RootNodeData.GetInputPortCount() retorne 0
-    // e RootNodeData.GetOutputPortCount() retorne 1.
+        // Implementação obrigatória do método abstrato
+        protected override void CreateNodeContent()
+        {
+            // O nó raiz não precisa de nenhum conteúdo customizado no 'mainContainer'.
+            // O título (de data.GetDisplayTitle()) e as portas (criadas pela
+            // classe base) já são suficientes.
+        }
+
+        // Nota: O CreatePorts() da sua classe base já cuida de tudo,
+        // desde que seu RootNodeData.GetInputPortCount() retorne 0
+        // e RootNodeData.GetOutputPortCount() retorne 1.
+    }
 }

@@ -2,10 +2,6 @@
 using System.Linq;
 using UnityEngine;
 
-/// <summary>
-/// Armazena variáveis locais da conversa (blackboard).
-/// Suporta bool, int, float, string.
-/// </summary>
 [System.Serializable]
 public class BlackboardData
 {
@@ -20,10 +16,10 @@ public class BlackboardData
         {
             return type switch
             {
-                VariableType.Bool => bool.Parse(stringValue),
-                VariableType.Int => int.Parse(stringValue),
-                VariableType.Float => float.Parse(stringValue),
-                VariableType.String => stringValue,
+                VariableType.Bool => bool.Parse(stringValue ?? "false"),
+                VariableType.Int => int.Parse(stringValue ?? "0"),
+                VariableType.Float => float.Parse(stringValue ?? "0.0"), // Use padrão com ponto
+                VariableType.String => stringValue ?? "",
                 _ => null
             };
         }
@@ -31,18 +27,34 @@ public class BlackboardData
         public void SetValue(object value)
         {
             stringValue = value?.ToString() ?? "";
+            // Consistência para float (opcional, depende da cultura)
+            if (type == VariableType.Float && value is float fVal)
+            {
+                stringValue = fVal.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+        }
+
+        public static string GetDefaultValue(VariableType type)
+        {
+            return type switch
+            {
+                VariableType.Bool => "false",
+                VariableType.Int => "0",
+                VariableType.Float => "0.0", // Consistente com GetValue/SetValue
+                VariableType.String => "",
+                _ => ""
+            };
         }
     }
 
     public enum VariableType { Bool, Int, Float, String }
 
-    [SerializeField] private List<Variable> variables = new List<Variable>();
-
-    public List<Variable> Variables => variables;
+    // Garante a inicialização AQUI
+    [SerializeField] public List<Variable> Variables = new List<Variable>();
 
     public void SetVariable(string name, object value)
     {
-        var variable = variables.FirstOrDefault(v => v.name == name);
+        var variable = Variables.FirstOrDefault(v => v.name == name); // Acessa a lista diretamente
         if (variable != null)
         {
             variable.SetValue(value);
@@ -55,22 +67,35 @@ public class BlackboardData
 
     public object GetVariable(string name)
     {
-        var variable = variables.FirstOrDefault(v => v.name == name);
+        var variable = Variables.FirstOrDefault(v => v.name == name); // Acessa a lista diretamente
         return variable?.GetValue();
     }
 
     public T GetVariable<T>(string name)
     {
         var value = GetVariable(name);
-        if (value is T typedValue)
-            return typedValue;
-
-        Debug.LogWarning($"Variable '{name}' is not of type {typeof(T)}");
+        try
+        {
+            if (value != null)
+            {
+                // Tenta conversão explícita ou implícita
+                return (T)System.Convert.ChangeType(value, typeof(T));
+            }
+        }
+        catch (System.InvalidCastException)
+        {
+            Debug.LogWarning($"Variable '{name}' of type {value?.GetType()} cannot be converted to {typeof(T)}");
+        }
+        catch (System.FormatException)
+        {
+            Debug.LogWarning($"Variable '{name}' has invalid format for type {typeof(T)}");
+        }
         return default;
     }
 
+
     public bool HasVariable(string name)
     {
-        return variables.Any(v => v.name == name);
+        return Variables.Any(v => v.name == name); // Acessa a lista diretamente
     }
 }

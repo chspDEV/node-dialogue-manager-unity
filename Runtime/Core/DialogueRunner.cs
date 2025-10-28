@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System;
+using ChspDev.DialogueSystem.Editor;
 
 /// <summary>
 /// Orquestra a execução de um DialogueAsset em runtime.

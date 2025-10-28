@@ -2,6 +2,7 @@
 using UnityEngine;
 using System.IO;
 using System.Linq;
+using ChspDev.DialogueSystem.Editor;
 
 /// <summary>
 /// Classe utilitária com funções auxiliares para o editor de diálogo.
