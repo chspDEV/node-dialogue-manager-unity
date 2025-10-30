@@ -32,7 +32,8 @@ namespace ChspDev.DialogueSystem.Editor
             Insert(0, gridBackground);
             gridBackground.StretchToParentSize();
 
-            DialogueGraphViewShortcuts.RegisterGraphViewFocus(this);
+            // Atalhos (você tem um DialogueGraphViewShortcutProvider, então esta linha pode ser desnecessária)
+            // DialogueGraphViewShortcuts.RegisterGraphViewFocus(this);
 
             graphViewChanged += OnGraphViewChanged;
             SetupNodeCreationRequest();
@@ -45,24 +46,11 @@ namespace ChspDev.DialogueSystem.Editor
             DialogueEditorEvents.OnNodeDataChanged += HandleNodeDataChanged;
             RegisterCallback<DetachFromPanelEvent>(evt => DialogueEditorEvents.OnNodeDataChanged -= HandleNodeDataChanged);
 
-            RegisterCallback<FocusInEvent>(evt =>
-            {
-                DialogueGraphViewShortcuts.RegisterGraphViewFocus(this);
-            });
-        }
-
-        public BaseNodeView CreateRootNode(Vector2 position)
-        {
-            if (dialogueAsset?.RootNode != null)
-            {
-                EditorUtility.DisplayDialog("Root Node", "Este diálogo já possui um nó raiz. Apenas um root node é permitido por diálogo.", "OK");
-                return null;
-            }
-
-            return CreateNodeInternal<RootNodeData>("Create Root Node", position, nodeData =>
-            {
-                // Root node não precisa de inicialização customizada
-            });
+            // Foco para atalhos
+            // RegisterCallback<FocusInEvent>(evt =>
+            // {
+            //     DialogueGraphViewShortcuts.RegisterGraphViewFocus(this);
+            // });
         }
 
         private void OnUndoRedoPerformed()
@@ -157,6 +145,28 @@ namespace ChspDev.DialogueSystem.Editor
 
         // ==================== CRIAÇÃO DE NÓS (COM UNDO) ====================
 
+        /// <summary>
+        /// Cria um nó Raiz (só deve ser chamado se não existir um).
+        /// </summary>
+        public BaseNodeView CreateRootNode(Vector2 position)
+        {
+            if (dialogueAsset?.RootNode != null)
+            {
+                EditorUtility.DisplayDialog("Root Node Exists", "A Root Node already exists for this dialogue. Only one is allowed.", "OK");
+                return null; // Não cria se já existir um
+            }
+
+            return CreateNodeInternal<RootNodeData>("Create Root Node", position, nodeData =>
+            {
+                // Posição ajustada para ficar claro
+                nodeData.EditorPosition = new Vector2(100, 200);
+            });
+        }
+
+
+        /// <summary>
+        /// Cria um nó de Fala.
+        /// </summary>
         public BaseNodeView CreateSpeechNode(Vector2 position)
         {
             return CreateNodeInternal<SpeechNodeData>("Create Speech Node", position, nodeData =>
@@ -166,6 +176,9 @@ namespace ChspDev.DialogueSystem.Editor
             });
         }
 
+        /// <summary>
+        /// Cria um nó de Opção.
+        /// </summary>
         public BaseNodeView CreateOptionNode(Vector2 position)
         {
             return CreateNodeInternal<OptionNodeData>("Create Option Node", position, nodeData =>
@@ -175,6 +188,7 @@ namespace ChspDev.DialogueSystem.Editor
                 else
                     nodeData.options.Clear();
 
+                // Adiciona uma opção padrão para começar
                 nodeData.options.Add(new OptionNodeData.Option
                 {
                     optionText = "Option 1",
@@ -184,6 +198,23 @@ namespace ChspDev.DialogueSystem.Editor
             });
         }
 
+        /// <summary>
+        /// ✨ NOVO: Cria um nó de Branch (If).
+        /// </summary>
+        public BaseNodeView CreateBranchNode(Vector2 position)
+        {
+            return CreateNodeInternal<BranchNodeData>("Create Branch Node", position, nodeData =>
+            {
+                // Inicializa a lista de condições
+                if (nodeData.conditions == null)
+                    nodeData.conditions = new List<BaseCondition>();
+            });
+        }
+
+
+        /// <summary>
+        /// Lógica interna genérica para criar qualquer tipo de nó (NodeData + NodeView) com Undo.
+        /// </summary>
         private BaseNodeView CreateNodeInternal<TNodeData>(string undoName, Vector2 position, Action<TNodeData> initializer = null)
             where TNodeData : BaseNodeData
         {
@@ -193,24 +224,34 @@ namespace ChspDev.DialogueSystem.Editor
                 return null;
             }
 
+            // 1. Cria a instância do ScriptableObject (NodeData)
             TNodeData nodeData = ScriptableObject.CreateInstance<TNodeData>();
-            nodeData.name = typeof(TNodeData).Name;
-            nodeData.guid = GUID.Generate().ToString();
-            nodeData.EditorPosition = position;
+            nodeData.name = typeof(TNodeData).Name; // Nome para visualização no Project
+            nodeData.guid = GUID.Generate().ToString(); // Gera GUID único
+            nodeData.EditorPosition = position;       // Define posição inicial
 
+            // 2. Aplica inicialização customizada (valores padrão)
             initializer?.Invoke(nodeData);
 
+            // 3. Registra a CRIAÇÃO do objeto para Undo
             Undo.RegisterCreatedObjectUndo(nodeData, undoName);
+
+            // 4. Adiciona como SUB-ASSET ao DialogueAsset principal
             AssetDatabase.AddObjectToAsset(nodeData, dialogueAsset);
 
+            // 5. Registra a ADIÇÃO à lista 'Nodes' do DialogueAsset para Undo
             Undo.RecordObject(dialogueAsset, undoName);
+            //if (dialogueAsset.Nodes == null) dialogueAsset.Nodes = new List<BaseNodeData>();
             dialogueAsset.Nodes.Add(nodeData);
 
+            // 6. Marca ambos os assets como "sujos" para salvamento
             EditorUtility.SetDirty(nodeData);
             EditorUtility.SetDirty(dialogueAsset);
 
+            // 7. Cria a VISUALIZAÇÃO (NodeView)
             BaseNodeView nodeView = CreateNodeViewVisual(nodeData);
 
+            // 8. Adiciona a visualização ao GraphView
             if (nodeView != null)
             {
                 AddElement(nodeView);
@@ -220,23 +261,30 @@ namespace ChspDev.DialogueSystem.Editor
             return nodeView;
         }
 
-        // ==================== 🔧 REMOÇÃO DE NÓS MELHORADA ====================
+        // ==================== REMOÇÃO DE NÓS (COM UNDO) ====================
 
         /// <summary>
-        /// 🔧 ATUALIZADO: Remove os dados do nó e TODAS as conexões associadas corretamente
+        /// Remove os dados do nó (NodeData) e todas as conexões associadas, com Undo.
         /// </summary>
         private void RemoveNodeData(BaseNodeView nodeView)
         {
             if (dialogueAsset == null || nodeView?.NodeData == null) return;
+
+            // Não permite deletar o RootNode
+            if (nodeView.NodeData is RootNodeData)
+            {
+                EditorUtility.DisplayDialog("Cannot Delete Root Node", "The Root Node (▶ START) cannot be deleted.", "OK");
+                return;
+            }
 
             BaseNodeData nodeDataToRemove = nodeView.NodeData;
 
             Undo.SetCurrentGroupName("Remove Node and Connections");
             int group = Undo.GetCurrentGroup();
 
-            // 🔧 CORREÇÃO: Remove conexões usando FromNodeGUID e ToNodeGUID corretos
+            // 1. Remove Conexões Associadas
             var connectionsToRemove = dialogueAsset.Connections
-                .Where(c => c != null && // ✅ Proteção contra null
+                .Where(c => c != null &&
                            (c.FromNodeGUID == nodeDataToRemove.guid ||
                             c.ToNodeGUID == nodeDataToRemove.guid))
                 .ToList();
@@ -244,29 +292,19 @@ namespace ChspDev.DialogueSystem.Editor
             if (connectionsToRemove.Count > 0)
             {
                 Undo.RecordObject(dialogueAsset, "Remove Node Connections");
-
-                Debug.Log($"[DialogueGraphView] Removing node '{nodeView.title}' and {connectionsToRemove.Count} associated connection(s).");
-
                 foreach (var conn in connectionsToRemove)
                 {
                     dialogueAsset.Connections.Remove(conn);
-
-                    
                 }
-
                 EditorUtility.SetDirty(dialogueAsset);
             }
 
-            // Remove o nó da lista
+            // 2. Remove o Nó da Lista Principal
             Undo.RecordObject(dialogueAsset, "Remove Node from List");
             bool removed = dialogueAsset.Nodes.Remove(nodeDataToRemove);
+            if (removed) EditorUtility.SetDirty(dialogueAsset);
 
-            if (removed)
-            {
-                EditorUtility.SetDirty(dialogueAsset);
-            }
-
-            // Destroi o sub-asset do nó
+            // 3. Destroi o Sub-Asset (NodeData)
             if (AssetDatabase.IsSubAsset(nodeDataToRemove))
             {
                 Undo.DestroyObjectImmediate(nodeDataToRemove);
@@ -277,15 +315,15 @@ namespace ChspDev.DialogueSystem.Editor
             }
 
             nodeViewCache.Remove(nodeDataToRemove.guid);
-
             Undo.CollapseUndoOperations(group);
-
-            // Salva o asset após todas as mudanças
-            AssetDatabase.SaveAssets();
+            AssetDatabase.SaveAssets(); // Salva as mudanças de sub-asset
         }
 
         // ==================== GERENCIAMENTO DE CONEXÕES (COM UNDO) ====================
 
+        /// <summary>
+        /// Salva uma nova conexão nos dados do DialogueAsset, registrando Undo.
+        /// </summary>
         public void SaveConnection(BaseNodeView outputNode, BaseNodeView inputNode, Port outputPort, Port inputPort)
         {
             if (dialogueAsset == null || outputNode?.NodeData == null || inputNode?.NodeData == null ||
@@ -300,40 +338,51 @@ namespace ChspDev.DialogueSystem.Editor
 
             if (outputPortIndex == -1 || inputPortIndex == -1)
             {
-                Debug.LogError($"SaveConnection: Invalid port index. Output: {outputPortIndex}, Input: {inputPortIndex}");
+                // O LogError já ocorreu dentro de GetPortIndex
                 return;
             }
 
             Undo.SetCurrentGroupName("Create Connection");
             int group = Undo.GetCurrentGroup();
-
             Undo.RecordObject(dialogueAsset, "Create Connection");
 
-            // Remove conexões existentes da mesma porta de saída se Single
+            // Remove conexões existentes da MESMA porta de SAÍDA, APENAS se a capacidade for Single
             if (outputPort.capacity == Port.Capacity.Single)
             {
                 dialogueAsset.Connections.RemoveAll(c =>
-                    c.FromNodeGUID == outputNode.NodeData.GUID &&
+                    c.FromNodeGUID == outputNode.NodeData.guid &&
                     c.FromPortIndex == outputPortIndex);
+            }
+
+            // Remove conexões existentes da MESMA porta de ENTRADA, APENAS se a capacidade for Single
+            if (inputPort.capacity == Port.Capacity.Single)
+            {
+                dialogueAsset.Connections.RemoveAll(c =>
+                   c.ToNodeGUID == inputNode.NodeData.guid &&
+                   c.ToPortIndex == inputPortIndex); // Usa ToPortIndex
             }
 
             ConnectionData newConnection = new ConnectionData
             {
-                FromNodeGUID = outputNode.NodeData.GUID,
+                FromNodeGUID = outputNode.NodeData.guid,
                 FromPortIndex = outputPortIndex,
-                ToNodeGUID = inputNode.NodeData.GUID,
-                ToPortIndex = inputPortIndex
+                ToNodeGUID = inputNode.NodeData.guid,
+                ToPortIndex = inputPortIndex // ✨ SALVA O ÍNDICE DA PORTA DE ENTRADA
             };
 
+            //if (dialogueAsset.Connections == null)
+                //dialogueAsset.Connections = new List<ConnectionData>();
+
             dialogueAsset.Connections.Add(newConnection);
-
             EditorUtility.SetDirty(dialogueAsset);
-
             Undo.CollapseUndoOperations(group);
 
             Debug.Log($"[DialogueGraphView] Connection created: {outputNode.title}[{outputPortIndex}] -> {inputNode.title}[{inputPortIndex}]");
         }
 
+        /// <summary>
+        /// Remove uma conexão específica dos dados do DialogueAsset, registrando Undo.
+        /// </summary>
         private void RemoveConnection(Edge edge)
         {
             if (dialogueAsset == null || edge == null) return;
@@ -341,20 +390,24 @@ namespace ChspDev.DialogueSystem.Editor
             var outputNode = edge.output?.node as BaseNodeView;
             var inputNode = edge.input?.node as BaseNodeView;
             var outputPort = edge.output;
+            var inputPort = edge.input; // ✨
 
-            if (outputNode?.NodeData == null || inputNode?.NodeData == null || outputPort == null)
+            if (outputNode?.NodeData == null || inputNode?.NodeData == null || outputPort == null || inputPort == null) // ✨
             {
                 return;
             }
 
             int outputPortIndex = outputNode.GetPortIndex(outputPort);
+            int inputPortIndex = inputNode.GetPortIndex(inputPort); // ✨
 
-            if (outputPortIndex == -1) return;
+            if (outputPortIndex == -1 || inputPortIndex == -1) return; // ✨
 
+            // Encontra a ConnectionData correspondente
             var connectionToRemove = dialogueAsset.Connections?.FirstOrDefault(c =>
                 c.FromNodeGUID == outputNode.NodeData.guid &&
                 c.ToNodeGUID == inputNode.NodeData.guid &&
-                c.FromPortIndex == outputPortIndex
+                c.FromPortIndex == outputPortIndex &&
+                c.ToPortIndex == inputPortIndex // ✨
             );
 
             if (connectionToRemove != null)
@@ -365,22 +418,21 @@ namespace ChspDev.DialogueSystem.Editor
             }
         }
 
-        // ==================== 🧹 LIMPEZA DE CONEXÕES ÓRFÃS ====================
+        // ==================== LIMPEZA DE CONEXÕES ÓRFÃS ====================
 
         /// <summary>
-        /// 🧹 Limpa conexões órfãs e corrompidas do asset automaticamente
+        /// Limpa conexões órfãs e corrompidas do asset automaticamente
         /// </summary>
         private void CleanOrphanConnections()
         {
             if (dialogueAsset == null) return;
 
-            // Cria hashset com GUIDs válidos dos nós
             var validNodeGuids = dialogueAsset.Nodes
                 .Where(n => n != null && !string.IsNullOrEmpty(n.GUID))
                 .Select(n => n.GUID)
                 .ToHashSet();
 
-            // Encontra conexões corrompidas
+            // Encontra conexões corrompidas (nulas, GUIDs vazios, ou GUIDs que não existem)
             var corruptedConnections = dialogueAsset.Connections
                 .Where(c => c == null ||
                            string.IsNullOrEmpty(c.FromNodeGUID) ||
@@ -392,27 +444,22 @@ namespace ChspDev.DialogueSystem.Editor
             if (corruptedConnections.Count > 0)
             {
                 Undo.RecordObject(dialogueAsset, "Clean Orphan Connections");
-
-                Debug.LogWarning($"[DialogueGraphView] Found {corruptedConnections.Count} corrupted connection(s) in '{dialogueAsset.name}'. Auto-cleaning...");
+                Debug.LogWarning($"[DialogueGraphView] Found {corruptedConnections.Count} corrupted/orphan connection(s) in '{dialogueAsset.name}'. Auto-cleaning...");
 
                 foreach (var connection in corruptedConnections)
                 {
                     dialogueAsset.Connections.Remove(connection);
-
-                    
                 }
 
                 EditorUtility.SetDirty(dialogueAsset);
-                AssetDatabase.SaveAssets();
-
-                Debug.Log($"[DialogueGraphView] Successfully cleaned {corruptedConnections.Count} corrupted connection(s).");
+                AssetDatabase.SaveAssets(); // Salva a limpeza
             }
         }
 
-        // ==================== 🔧 POPULAR VIEW MELHORADO ====================
+        // ==================== POPULAR E CRIAR VIEWS (Visual) ====================
 
         /// <summary>
-        /// 🔧 ATUALIZADO: PopulateView com validação robusta e limpeza automática
+        /// Limpa e recria toda a representação visual do grafo a partir do DialogueAsset atual.
         /// </summary>
         public void PopulateView()
         {
@@ -429,75 +476,43 @@ namespace ChspDev.DialogueSystem.Editor
                 return;
             }
 
-            // 🧹 LIMPEZA AUTOMÁTICA antes de popular
+            // Limpa conexões inválidas ANTES de tentar desenhar
             CleanOrphanConnections();
 
-            // Recria nós com validação robusta
+            // Recria nós com validação
             if (dialogueAsset.Nodes != null)
             {
-                foreach (var nodeData in dialogueAsset.Nodes)
+                // Garante que o RootNode seja desenhado primeiro (opcional, mas bom para layout)
+                var rootNodeData = dialogueAsset.RootNode;
+                if (rootNodeData != null)
                 {
-                    // 🔍 Validação 1: Null check
-                    if (nodeData == null)
-                    {
-                        Debug.LogWarning($"[DialogueGraphView] Found null NodeData in asset '{dialogueAsset.name}'. Skipping.");
-                        continue;
-                    }
+                    DrawNodeAndCache(rootNodeData);
+                }
 
-                    // 🔍 Validação 2: GUID vazio
-                    if (string.IsNullOrEmpty(nodeData.GUID))
-                    {
-                        Debug.LogWarning($"[DialogueGraphView] Node with empty GUID found in '{dialogueAsset.name}'. Assigning new GUID.");
-                        nodeData.guid = System.Guid.NewGuid().ToString();
-                        EditorUtility.SetDirty(nodeData);
-                        EditorUtility.SetDirty(dialogueAsset);
-                    }
-
-                    BaseNodeView nodeView = CreateNodeViewVisual(nodeData);
-                    if (nodeView != null)
-                    {
-                        AddElement(nodeView);
-                        nodeViewCache[nodeData.GUID] = nodeView;
-                    }
+                // Desenha os outros nós
+                foreach (var nodeData in dialogueAsset.Nodes.Where(n => n != null && !(n is RootNodeData)))
+                {
+                    DrawNodeAndCache(nodeData);
                 }
             }
 
-            // Recria conexões com validação completa
+            // Recria conexões com validação
             if (dialogueAsset.Connections != null)
             {
                 foreach (var connectionData in dialogueAsset.Connections)
                 {
-                    // 🔍 Validação 1: Null check
-                    if (connectionData == null)
+                    if (connectionData == null) continue;
+
+                    if (!nodeViewCache.TryGetValue(connectionData.FromNodeGUID, out BaseNodeView outputNodeView) ||
+                        !nodeViewCache.TryGetValue(connectionData.ToNodeGUID, out BaseNodeView inputNodeView))
                     {
-                        Debug.LogWarning($"[DialogueGraphView] Found null ConnectionData in asset '{dialogueAsset.name}'. Skipping.");
+                        // (Já foi logado pelo CleanOrphanConnections, mas é bom prevenir)
                         continue;
                     }
 
-                    // 🔍 Validação 2: GUIDs vazios
-                    if (string.IsNullOrEmpty(connectionData.FromNodeGUID) ||
-                        string.IsNullOrEmpty(connectionData.ToNodeGUID))
-                    {
-                        Debug.LogWarning($"[DialogueGraphView] Connection with empty GUIDs found: '{connectionData.FromNodeGUID}' -> '{connectionData.ToNodeGUID}'. Skipping.");
-                        continue;
-                    }
-
-                    // 🔍 Validação 3: Nós existem no cache?
-                    if (!nodeViewCache.TryGetValue(connectionData.FromNodeGUID, out BaseNodeView outputNodeView))
-                    {
-                        Debug.LogWarning($"[DialogueGraphView] Connection references non-existent source node GUID: {connectionData.FromNodeGUID}. Skipping edge.");
-                        continue;
-                    }
-
-                    if (!nodeViewCache.TryGetValue(connectionData.ToNodeGUID, out BaseNodeView inputNodeView))
-                    {
-                        Debug.LogWarning($"[DialogueGraphView] Connection references non-existent target node GUID: {connectionData.ToNodeGUID}. Skipping edge.");
-                        continue;
-                    }
-
-                    // 🔍 Validação 4: Portas existem?
+                    // Encontra as Ports corretas
                     Port outputPort = outputNodeView.GetOutputPort(connectionData.FromPortIndex);
-                    Port inputPort = inputNodeView.GetInputPort(connectionData.ToPortIndex);
+                    Port inputPort = inputNodeView.GetInputPort(connectionData.ToPortIndex); // ✨ USA ToPortIndex
 
                     if (outputPort != null && inputPort != null)
                     {
@@ -516,8 +531,26 @@ namespace ChspDev.DialogueSystem.Editor
 
             graphViewChanged += OnGraphViewChanged;
             DialogueEditorEvents.OnNodeDataChanged += HandleNodeDataChanged;
+        }
 
-            Debug.Log($"[DialogueGraphView] PopulateView completed. Nodes: {nodeViewCache.Count}, Connections: {edges.ToList().Count}");
+        // Helper para popular a view, evitando duplicação
+        private void DrawNodeAndCache(BaseNodeData nodeData)
+        {
+            if (string.IsNullOrEmpty(nodeData.GUID))
+            {
+                Debug.LogWarning($"[DialogueGraphView] Node '{nodeData.name}' has empty GUID. Assigning new one.");
+                nodeData.guid = System.Guid.NewGuid().ToString();
+                EditorUtility.SetDirty(nodeData);
+            }
+
+            if (nodeViewCache.ContainsKey(nodeData.GUID)) return; // Já foi processado
+
+            BaseNodeView nodeView = CreateNodeViewVisual(nodeData);
+            if (nodeView != null)
+            {
+                AddElement(nodeView);
+                nodeViewCache[nodeData.GUID] = nodeView;
+            }
         }
 
         public void PopulateView(DialogueAsset asset)
@@ -526,22 +559,27 @@ namespace ChspDev.DialogueSystem.Editor
             PopulateView();
         }
 
+        /// <summary>
+        /// Cria a instância da classe de visualização (NodeView) correta para um NodeData.
+        /// </summary>
         private BaseNodeView CreateNodeViewVisual(BaseNodeData nodeData)
         {
             BaseNodeView nodeView = null;
 
+            // Usa switch expression para determinar qual View instanciar
             nodeView = nodeData switch
             {
                 RootNodeData rootData => new RootNodeView(rootData),
                 SpeechNodeData speechData => new SpeechNodeView(speechData),
                 OptionNodeData optionData => new OptionNodeView(optionData),
+                BranchNodeData branchData => new BranchNodeView(branchData), // ✨ ADICIONADO BRANCH VIEW
                 _ => null
             };
 
             if (nodeView != null)
             {
                 nodeView.SetPosition(new Rect(nodeData.EditorPosition, Vector2.zero));
-                SetupEdgeConnectorListener(nodeView);
+                SetupEdgeConnectorListener(nodeView); // Configura drag-and-drop
             }
             else if (nodeData != null)
             {
@@ -569,7 +607,6 @@ namespace ChspDev.DialogueSystem.Editor
         public void OpenSearchWindow(Port originPort, Vector2 screenPosition)
         {
             if (searchWindowProvider == null) InitializeSearchWindow();
-
             searchWindowProvider.SetOriginPort(originPort);
             SearchWindowContext context = new SearchWindowContext(screenPosition, 350, 250);
             SearchWindow.Open(context, searchWindowProvider);
@@ -609,7 +646,7 @@ namespace ChspDev.DialogueSystem.Editor
 
             public void OnDrop(GraphView graphView, Edge edge)
             {
-                // Lógica já está em OnGraphViewChanged
+                // A lógica já está em OnGraphViewChanged
             }
         }
 

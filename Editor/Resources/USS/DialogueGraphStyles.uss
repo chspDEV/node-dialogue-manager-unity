@@ -152,8 +152,20 @@ Port {
     scale: 1.1 1.1;
 }
 
+.branch-node #title {
+    background-color: #375D5D; /* Azul-petróleo (Lógica) */
+    border-bottom-color: #2a4a4a;
+}
+.branch-node {
+    border-color: #375D5D;
+}
+.branch-node:selected {
+    border-color: #5C9A9A; /* Destaque azul-petróleo */
+}
+
 /* Conectores (ao arrastar) */
 #connector {
     background-color: #ffffff;
     border-radius: 10px;
     width: 10px;
+}

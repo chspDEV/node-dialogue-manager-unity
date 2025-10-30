@@ -1,22 +1,17 @@
-// Arquivo: BaseNodeData.cs
+Ôªø// Arquivo: BaseNodeData.cs
 using System.Collections.Generic;
 using UnityEngine;
-// Remova 'using UnityEngine.TextCore.Text;' (n„o est· sendo usado)
 
 /// <summary>
-/// Classe base abstrata para todos os tipos de nÛs.
-/// AGORA È um ScriptableObject.
+/// Classe base abstrata para todos os tipos de n√≥s.
 /// </summary>
-// [System.Serializable] N√O È mais necess·rio na classe base, 
-// pois ScriptableObject j· È serializ·vel pelo Unity.
-public abstract class BaseNodeData : ScriptableObject // <-- MUDAN«A CRUCIAL
+public abstract class BaseNodeData : ScriptableObject
 {
     [SerializeField] public string guid;
     [SerializeField] private Vector2 editorPosition;
     [SerializeField] private string nodeTitle = "Untitled Node";
 
-    // AÁıes executadas quando o nÛ È ativado
-    [SerializeReference] // Mantenha isso se BaseAction N√O for um ScriptableObject
+    [SerializeReference]
     private List<BaseAction> actions = new List<BaseAction>();
 
     public string GUID
@@ -33,11 +28,56 @@ public abstract class BaseNodeData : ScriptableObject // <-- MUDAN«A CRUCIAL
     public string NodeTitle { get => nodeTitle; set => nodeTitle = value; }
     public List<BaseAction> Actions => actions;
 
-    // O resto do seu cÛdigo permanece igual
+    // M√©todos abstratos
     public abstract string GetDisplayTitle();
     public abstract int GetOutputPortCount();
     public abstract int GetInputPortCount();
-    public virtual void OnNodeEnter() { /* ... */ }
-    public virtual void OnNodeExit() { /* ... */ }
-    protected void ExecuteActions() { /* ... */ }
+
+
+    /// <summary>
+    /// Chamado pelo DialogueRunner quando este n√≥ √© ativado.
+    /// Executa todas as a√ß√µes definidas na lista 'actions'.
+    /// </summary>
+    public virtual void OnNodeEnter()
+    {
+        // --- ‚¨áÔ∏è LOG DE DEBUG ‚¨áÔ∏è ---
+        Debug.Log($"[DEBUG] {GetDisplayTitle()} (GUID: {GUID}): OnNodeEnter() chamado.", this);
+        // -------------------------
+
+        // Esta linha faz com que as 'Actions' sejam realmente executadas
+        ExecuteActions();
+    }
+
+
+    public virtual void OnNodeExit() { }
+
+    /// <summary>
+    /// Executa todas as BaseActions na lista 'actions'.
+    /// </summary>
+    protected void ExecuteActions()
+    {
+        if (actions == null || actions.Count == 0)
+        {
+            // --- ‚¨áÔ∏è LOG DE DEBUG ‚¨áÔ∏è ---
+            Debug.Log($"[DEBUG] {GetDisplayTitle()}: ExecuteActions() chamado, mas a lista de a√ß√µes est√° nula ou vazia.");
+            // -------------------------
+            return;
+        }
+
+        // --- ‚¨áÔ∏è LOG DE DEBUG ‚¨áÔ∏è ---
+        Debug.Log($"[DEBUG] {GetDisplayTitle()}: ExecuteActions() chamado. {actions.Count} a√ß√£o(√µes) encontradas. A processar...");
+        // -------------------------
+
+        foreach (var action in actions)
+        {
+            if (action != null)
+            {
+                action.Execute();
+            }
+            else
+            {
+                Debug.LogWarning($"[DEBUG] {GetDisplayTitle()}: Encontrada uma A√ß√£o nula na lista.");
+            }
+        }
+    }
 }

@@ -5,7 +5,6 @@ using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-// Certifique-se de que o namespace corresponde ao seu projeto
 namespace ChspDev.DialogueSystem.Editor
 {
     /// <summary>
@@ -41,36 +40,53 @@ namespace ChspDev.DialogueSystem.Editor
         public List<SearchTreeEntry> CreateSearchTree(SearchWindowContext context)
         {
             var tree = new List<SearchTreeEntry>
-    {
-        // Título principal
-        new SearchTreeGroupEntry(new GUIContent("Create Dialogue Node"), 0),
-    };
+            {
+                // Título principal
+                new SearchTreeGroupEntry(new GUIContent("Create Dialogue Node"), 0),
+            };
 
-            // ✅ NOVO: Só mostra root node se não existir um
+            // Só mostra a opção de criar RootNode se ele não existir
             if (graphView?.dialogueAsset?.RootNode == null)
             {
-                tree.Add(new SearchTreeEntry(new GUIContent("Root Node"))
+                tree.Add(new SearchTreeEntry(new GUIContent("Root Node (▶ START)"))
                 {
                     level = 1,
                     userData = typeof(RootNodeData)
                 });
-
-                // Separador visual (opcional)
-                tree.Add(new SearchTreeGroupEntry(new GUIContent(""), 1));
+                // Adiciona um separador visual
+                tree.Add(new SearchTreeEntry(new GUIContent("")) { level = 1, userData = null }); // Separador
             }
 
-            // Nós disponíveis
-            tree.Add(new SearchTreeEntry(new GUIContent("Speech Node"))
+            // Nós de Diálogo
+            tree.Add(new SearchTreeEntry(new GUIContent("💬 Speech Node"))
             {
                 level = 1,
                 userData = typeof(SpeechNodeData)
             });
 
-            tree.Add(new SearchTreeEntry(new GUIContent("Option Node"))
+            tree.Add(new SearchTreeEntry(new GUIContent("❓ Option Node"))
             {
                 level = 1,
                 userData = typeof(OptionNodeData)
             });
+
+            // --- ✨ ADICIONADO BRANCH NODE ---
+            tree.Add(new SearchTreeEntry(new GUIContent("💎 Branch Node (If)"))
+            {
+                level = 1,
+                userData = typeof(BranchNodeData) // Aponta para a nova classe de dados
+            });
+            // ---------------------------------
+
+            // TODO: Adicionar grupos para Lógica, Eventos, etc.
+            // var tree = new List<SearchTreeEntry>
+            // {
+            //     new SearchTreeGroupEntry(new GUIContent("Dialogue"), 0),
+            //     new SearchTreeEntry(new GUIContent("💬 Speech Node")) { level = 1, userData = typeof(SpeechNodeData) },
+            //     new SearchTreeEntry(new GUIContent("❓ Option Node")) { level = 1, userData = typeof(OptionNodeData) },
+            //     new SearchTreeGroupEntry(new GUIContent("Logic"), 0),
+            //     new SearchTreeEntry(new GUIContent("💎 Branch Node (If)")) { level = 1, userData = typeof(BranchNodeData) },
+            // };
 
             return tree;
         }
@@ -83,17 +99,18 @@ namespace ChspDev.DialogueSystem.Editor
             // Validações básicas
             if (graphView == null || editorWindow == null || !(entry.userData is Type nodeType))
             {
+                // Ignora entradas que não são tipos (como separadores ou grupos)
+                if (entry.userData == null) return false;
+
                 Debug.LogError("NodeSearchWindow não inicializada corretamente ou tipo de nó inválido.");
                 return false;
             }
 
             // Calcula a posição correta no grafo
-            // 1. Converte a posição da tela para a posição local da janela do editor
             var windowMousePosition = editorWindow.rootVisualElement.ChangeCoordinatesTo(
                 editorWindow.rootVisualElement.parent,
                 context.screenMousePosition - editorWindow.position.position
             );
-            // 2. Converte a posição da janela para a posição local dentro do container do grafo
             var graphMousePosition = graphView.contentViewContainer.WorldToLocal(windowMousePosition);
 
             // Cria o nó usando os métodos do GraphView (que já lidam com Undo)
@@ -105,16 +122,20 @@ namespace ChspDev.DialogueSystem.Editor
                 ConnectNodeToPort(newNodeView, originPort);
             }
 
-            // Limpa a porta de origem para garantir que não seja usada na próxima abertura
+            // Limpa a porta de origem
             originPort = null;
-            return true; // Indica que a seleção foi bem-sucedida
+            return true;
         }
 
+        /// <summary>
+        /// Chama o método de criação apropriado no GraphView com base no tipo de nó selecionado.
+        /// </summary>
         private BaseNodeView CreateNodeByType(Type nodeType, Vector2 position)
         {
-            // ✅ NOVO: Root Node
             if (nodeType == typeof(RootNodeData))
             {
+                // O GraphView precisa ter o método CreateRootNode
+                // (Adicioná-lo no Passo 4 se não existir)
                 return graphView.CreateRootNode(position);
             }
             else if (nodeType == typeof(SpeechNodeData))
@@ -125,6 +146,14 @@ namespace ChspDev.DialogueSystem.Editor
             {
                 return graphView.CreateOptionNode(position);
             }
+            // --- ✨ ADICIONADO BRANCH NODE ---
+            else if (nodeType == typeof(BranchNodeData))
+            {
+                // O GraphView precisa ter o método CreateBranchNode
+                // (Nós o adicionaremos no Passo 4)
+                return graphView.CreateBranchNode(position);
+            }
+            // ---------------------------------
 
             Debug.LogWarning($"Criação de nó não implementada para o tipo: {nodeType.Name} em NodeSearchWindow.");
             return null;
@@ -137,22 +166,20 @@ namespace ChspDev.DialogueSystem.Editor
         {
             Port targetPort = null;
 
-            // Determina qual porta do *novo* nó usar baseado na direção da porta *original*
             if (sourcePort.direction == Direction.Output)
             {
-                // Se saiu de uma porta de SAÍDA, conecta à PRIMEIRA porta de ENTRADA do novo nó
-                targetPort = newNodeView.GetInputPort(0); // Usa o método seguro de BaseNodeView
+                // Conecta à PRIMEIRA porta de ENTRADA do novo nó
+                targetPort = newNodeView.GetInputPort(0);
             }
             else // sourcePort.direction == Direction.Input
             {
-                // Se saiu de uma porta de ENTRADA, conecta à PRIMEIRA porta de SAÍDA do novo nó
-                targetPort = newNodeView.GetOutputPort(0); // Usa o método seguro de BaseNodeView
+                // Conecta à PRIMEIRA porta de SAÍDA do novo nó
+                targetPort = newNodeView.GetOutputPort(0);
             }
 
-            // Verifica se a porta de destino foi encontrada
             if (targetPort != null)
             {
-                // Cria a Edge (conexão visual). O salvamento dos dados ocorre no OnGraphViewChanged do GraphView.
+                // Cria a Edge (conexão visual). O salvamento ocorre no OnGraphViewChanged.
                 var edge = sourcePort.ConnectTo(targetPort);
                 if (edge != null)
                 {

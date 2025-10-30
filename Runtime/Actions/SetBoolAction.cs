@@ -12,6 +12,9 @@ public class SetBoolAction : BaseAction
 
     public override void Execute()
     {
-        SetVariableValue(value);
+        // --- ⬇️ LOG DE DEBUG ⬇️ ---
+        Debug.Log($"[DEBUG] SetBoolAction: Execute() chamado para a variável '{variableName}' com o valor '{this.value}'.");
+        // -------------------------
+        SetVariableValue(this.value);
     }
 }

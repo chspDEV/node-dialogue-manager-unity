@@ -1,7 +1,7 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
-/// Classe base abstrata para a��es.
+/// Classe base abstrata para ações.
 /// </summary>
 [System.Serializable]
 public abstract class BaseAction : IAction
@@ -14,6 +14,19 @@ public abstract class BaseAction : IAction
 
     protected void SetVariableValue(object value)
     {
-        ConversationManager.Instance?.SetVariable(variableName, value);
+        // --- ⬇️ LOG DE DEBUG ⬇️ ---
+        Debug.Log($"[DEBUG] BaseAction: SetVariableValue() chamado. Tentando definir '{variableName}' para '{value}'.");
+        // -------------------------
+
+        if (ConversationManager.Instance != null)
+        {
+            ConversationManager.Instance.SetVariable(variableName, value);
+        }
+        else
+        {
+            // --- ⬇️ LOG DE DEBUG ⬇️ ---
+            Debug.LogError("[DEBUG] BaseAction: FALHA! ConversationManager.Instance é NULO. A variável não pode ser definida.");
+            // -------------------------
+        }
     }
 }
