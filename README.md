@@ -122,7 +122,7 @@ Perfect for:
 
 ---
 
-## 📥 Installation
+## 🔥 Installation
 
 ### Option 1: Unity Package Manager (Recommended)
 
@@ -131,7 +131,7 @@ Perfect for:
 3. Select **"Add package from git URL..."**
 4. Paste the following URL:
 ```
-https://github.com/carlosbobao/node-dialogue-manager-unity.git
+https://github.com/chspDEV/node-dialogue-manager-unity.git
 ```
 5. Click **Add**
 
@@ -147,7 +147,7 @@ Add this line to your `Packages/manifest.json`:
 ```json
 {
   "dependencies": {
-    "com.carlosbobao.nodedialoguemanagerunity": "https://github.com/carlosbobao/node-dialogue-manager-unity.git"
+    "com.carlosbobao.nodedialoguemanagerunity": "https://github.com/chspDEV/node-dialogue-manager-unity.git"
   }
 }
 ```
@@ -395,8 +395,8 @@ This project is licensed under the **MIT License** - see the [LICENSE.md](LICENS
 
 ## 💬 Support
 
-- **Issues**: [GitHub Issues](https://github.com/carlosbobao/node-dialogue-manager-unity/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/carlosbobao/node-dialogue-manager-unity/discussions)
+- **Issues**: [GitHub Issues](https://github.com/chspDEV/node-dialogue-manager-unity/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/chspDEV/node-dialogue-manager-unity/discussions)
 - **Documentation**: *(Coming Soon)*
 
 ---
