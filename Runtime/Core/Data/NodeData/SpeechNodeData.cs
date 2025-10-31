@@ -36,6 +36,12 @@ public class SpeechNodeData : BaseNodeData
         onNodeActivated?.Invoke();
     }
 
+    public override void OnNodeExit()
+    {
+        base.OnNodeExit();
+        CompleteNode();
+    }
+
     public void CompleteNode()
     {
         onNodeCompleted?.Invoke();

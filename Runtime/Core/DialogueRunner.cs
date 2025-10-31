@@ -164,6 +164,7 @@ public class DialogueRunner : MonoBehaviour
         Debug.Log($"[DEBUG] DialogueRunner: AdvanceToNextNode() - Procurando próximo nó a partir de '{fromNode.GetDisplayTitle()}' (Porta: {portIndex})");
         // -------------------------
 
+        fromNode.OnNodeExit();
         BaseNodeData nextNode = currentAsset.GetNextNode(fromNode, portIndex);
 
         if (nextNode == null)
