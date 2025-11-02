@@ -13,7 +13,7 @@ public static class DialogueEditorUtility
     /// Cria um novo DialogueAsset via menu de contexto.
     /// </summary>
     [MenuItem("Assets/Create/Dialogue System/Dialogue Asset")]
-    public static void CreateDialogueAsset()
+    public static void CreateNewDialogueAsset()
     {
         string path = AssetDatabase.GetAssetPath(Selection.activeObject);
 

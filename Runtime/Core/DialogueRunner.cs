@@ -1,4 +1,5 @@
 ﻿using ChspDev.DialogueSystem.Editor;
+using NodeDialogue;
 using System;
 using System.Linq;
 using UnityEngine;
@@ -35,7 +36,7 @@ public class DialogueRunner : MonoBehaviour
         if (uiManager == null)
         {
             Debug.LogWarning($"[DialogueRunner] DialogueUIManager não foi atribuído em '{gameObject.name}'. Tentando encontrar na cena...", this);
-            uiManager = FindObjectOfType<DialogueUIManager>();
+            uiManager = FindFirstObjectByType<DialogueUIManager>();
             if (uiManager == null)
             {
                 Debug.LogError($"[DialogueRunner] Nenhum DialogueUIManager encontrado na cena! O diálogo não pode funcionar.", this);
