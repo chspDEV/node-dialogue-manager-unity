@@ -1,7 +1,9 @@
 ﻿using ChspDev.DialogueSystem.Editor;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEditor;
+#if UNITY_EDITOR
+    using UnityEditor;
+#endif
 using UnityEngine;
 
 /// <summary>
@@ -29,17 +31,22 @@ public class DialogueAsset : ScriptableObject
 
     public RootNodeData RootNode => nodes.OfType<RootNodeData>().FirstOrDefault();
 
+#if UNITY_EDITOR
     private void OnEnable()
     {
         if (string.IsNullOrEmpty(assetGUID))
         {
+
             assetGUID = GUID.Generate().ToString();
+
         }
 
         // ✅ NOVO: Garante que sempre há um root node
         EnsureRootNodeExists();
     }
+#endif
 
+#if UNITY_EDITOR
     /// <summary>
     /// Garante que este asset possui um nó raiz (RootNode).
     /// Se não existir, cria um automaticamente.
@@ -55,11 +62,15 @@ public class DialogueAsset : ScriptableObject
         // Cria uma nova instância de RootNodeData
         RootNodeData rootNode = ScriptableObject.CreateInstance<RootNodeData>();
         rootNode.name = "RootNode";
+
         rootNode.SetGUID(GUID.Generate().ToString());
+
         rootNode.EditorPosition = Vector2.zero; // Posição padrão (canto superior esquerdo)
 
         // Adiciona como sub-asset
+
         AssetDatabase.AddObjectToAsset(rootNode, this);
+
 
         // Adiciona à lista de nós
         nodes.Add(rootNode);
@@ -73,8 +84,11 @@ public class DialogueAsset : ScriptableObject
         AssetDatabase.Refresh();
 
         Debug.Log($"[DialogueAsset] Root node criado e salvo em '{name}'");
-    }
 
+    }
+#endif
+
+#if UNITY_EDITOR
     public void AddNode(BaseNodeData node)
     {
         nodes.Add(node);
@@ -94,6 +108,7 @@ public class DialogueAsset : ScriptableObject
         EditorUtility.SetDirty(this);
     }
 
+#endif
     public BaseNodeData GetNodeByGUID(string guid)
     {
         return nodes.FirstOrDefault(n => n.GUID == guid);
